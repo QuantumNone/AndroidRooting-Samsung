@@ -1,4 +1,5 @@
-AutoRooting\Tools
+AutoRooting/Tools/
+AutoRooting/Downloads/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
