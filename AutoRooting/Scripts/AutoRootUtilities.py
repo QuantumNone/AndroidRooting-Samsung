@@ -5,14 +5,14 @@ import os, platform, ctypes, shutil, socket, urllib.request, zipfile
 # Colors for String formatting :
 Colors = {
     "Reset": "\033[0m",
-    "Grey": "\033[1;30;48m",
-    "Red": "\033[1;31;48m",
-    "Green": "\033[1;32;48m",
-    "Yellow": "\033[1;33;48m",
-    "Blue": "\033[1;34;48m",
-    "Magenta": "\033[1;35;48m",
-    "Cyan": "\033[1;36;48m",
-    "White": "\033[1;37;48m",
+    "Grey": "\033[1;30m",
+    "Red": "\033[1;31m",
+    "Green": "\033[1;32m",
+    "Yellow": "\033[1;33m",
+    "Blue": "\033[1;34m",
+    "Magenta": "\033[1;35m",
+    "Cyan": "\033[1;36m",
+    "White": "\033[1;37m",
 }
 # Usage Example : print(Colors["Red"] + 'Color that string' + Colors["Reset"])
 
@@ -34,14 +34,12 @@ def askUser(question) -> bool:
 class UnsupportedPlatformError(Exception):
     pass
 
-
 # getPlatform returns variables for supported platforms.
-# Windows systems will return 1, while Linux systems return 2. All other systems will error out.
-def getPlatform() -> int:
+def getPlatform() -> str:
     if platform.system() == "Windows":
-        return 1
+        return "Windows"
     elif platform.system() == "Linux":
-        return 2
+        return "Linux"
     raise UnsupportedPlatformError(
         f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error."
     )
@@ -172,3 +170,6 @@ def checkfile(filename: str):
         return True
     else:
         return False
+
+
+

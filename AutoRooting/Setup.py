@@ -1,104 +1,155 @@
 import Scripts.AutoRootUtilities as rutil
 
+# Colors for String formatting :
+Colors = {
+    "Reset": "\033[0m",
+    "Grey": "\033[1;30m",
+    "Red": "\033[1;31m",
+    "Green": "\033[1;32m",
+    "Yellow": "\033[1;33m",
+    "Blue": "\033[1;34m",
+    "Magenta": "\033[1;35m",
+    "Cyan": "\033[1;36m",
+    "White": "\033[1;37m",
+}
+# Usage Example : print(Colors["Red"] + 'Color that string' + Colors["Reset"])
+
+
 # We start by checking everything is configured correctly OK
 
-mode = rutil.getPlatform()
+Platform = rutil.getPlatform()
 
-if mode == 1:
-    print("Detected a Windows system")
-elif mode == 2:
-    print("Detected a Linux system")
+if not rutil.getDiskSpace() > 17179869184:
+    print(f"Less than {Colors['Red']}16 Gigabytes{Colors['Reset']} of disk space is available, setup cannot continue.")
+    input(f"\nPress {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
 
-if not rutil.getDiskSpace() > 8589934592:
-    raise SystemExit(
-        "Less than 8GiB of disk space is available, setup cannot continue."
-    )
+    raise SystemExit()
 
 if not rutil.isElevated():
-    raise SystemExit(
-        "This Script requires Elevated Priviledges, Execution cannot continue."
-    )
+    print(f"This Script requires {Colors['Red']}Elevated Priviledges{Colors['Reset']}, Execution cannot continue.")
+    input(f"\nPress {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
+
+    raise SystemExit()
 
 if not rutil.isConnected():
-    raise SystemExit(
-        "Could not connect to the Internet, or could not resolve DNS. Check your Internet."
-    )
+    print(f"Could not connect to the Internet, or could not resolve DNS. {Colors['Red']}Check your Internet Connetion{Colors['Reset']}!")
+    input(f"\nPress {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
 
+    raise SystemExit()
+
+# Checks if the installation has been marked as in progress, and redirects the installer to docker
+#(Docker's first install requires a reboot so that flag serves to not redo the entire installer)
 resumeSetup = False
 if rutil.os.path.isfile("Tools\\inprogress.cfg"):
     print("Resuming setup")
     resumeSetup = True
 
 if not rutil.isSetup():
-    if (mode == 1) and (not resumeSetup):
+    if (Platform == "Windows") and (not resumeSetup):
         if not rutil.checkTool("wsl"):
-            raise SystemExit(
-                "This tool requires WSL2 to be installed in order to patch magisk boot images with docker. WSL2 can be installed on all versions of Windows starting with Windows 10 2004 and all releases of Windows 11. For more information, see https://aka.ms/wsl"
-            )
-        if rutil.checkTool("adb") or rutil.checkTool("fastboot"):
-            raise SystemExit(
-                "ADB or Fastboot are already in Path. This will conflict with the installed version, which will install the latest version of platform-tools into path. Please remove the offending programs and re-run Setup."
-            )
+            print(f"[{Colors['Green']}AutoRooting{Colors['Reset']}] requires {Colors['Red']}WSL2{Colors['Reset']} (Windows Subsystem for Linux) to be installed.")
+            print(f"For more information, see {Colors['Blue']}https://aka.ms/wsl{Colors['Reset']}")
+            input(f"\nPress {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
+
+            raise SystemExit()
+
+        if rutil.checkTool("adb") or rutil.checkTool("fastboot"): #Need to create a function that removes these tools from the Environment Path and that removes C:/platform-tools folder
+            raise SystemExit()
+
+        # TODO: replace this check with a WSL check that will determinate if the app present is installer or installed
         if not resumeSetup:
-            print("Checks Complete, Detected first run or configuration removed.")
             print(
-                "Welcome to Setup.py, this setup file will install google's platform-tools and docker, then will spawn a docker container to patch boot images for magisk."
+                f"""All the {Colors['Red']}requirements{Colors['Reset']} have been configured correctly!
+                [{Colors['Red']}Setup.py{Colors['Reset']}] will perform an installation of :
+                {Colors['Green']}SDK Platform Tools{Colors['Reset']} : includes tools that interface with the Android platform trough USB Communication [{Colors['Green']}adb&fastboot{Colors['Reset']}]
+                {Colors['Green']}Docker Software{Colors['Reset']} : a {Colors['Green']}virtual machine{Colors['Reset']} that helps on patching Android images with {Colors['Green']}Magisk{Colors['Reset']}
+                """
             )
-            if not rutil.askUser("Is this alright?"):
-                raise SystemExit("User refused setup, exiting.")
-            else:
-                print("Preparing File Structure.")
-                try:
-                    rutil.os.mkdir("Tools")
-                except FileExistsError:
-                    pass
-                try:
-                    rutil.os.mkdir("Tools\\magiskDocker")
-                except FileExistsError:
-                    pass
-                try:
-                    rutil.os.mkdir("Downloads")
-                except FileExistsError:
-                    pass
+            print(f"Preparing {Colors['Red']}File Structure{Colors['Reset']}...")
+            print(
+                f"""
+                ├───{Colors['Green']}Devices{Colors['Reset']}
+                ├───{Colors['Red']}Downloads{Colors['Reset']}
+                ├───Scripts
+                │   └───__pycache__
+                └───{Colors['Green']}Tools{Colors['Reset']}
+                    ├───magiskDocker
+                    └───platform-tools
+                """)
+
+            try:
+                rutil.os.mkdir("Tools")
+            except FileExistsError:
+                pass
+            try:
+                rutil.os.mkdir("Tools\\magiskDocker")
+            except FileExistsError:
+                pass
+            try:
+                rutil.os.mkdir("Downloads")
+            except FileExistsError:
+                pass
+
+
+            rutil.download(
+                "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
+                "plattools.zip",
+            )
+            
+            rutil.extractZip(
+                "Downloads\\plattools.zip", 
+                "Tools"
+            )
+
+            #Adding platform-tools folder to the Environment PATH to be able to access to adb.exe and fastboot.exe anywhere in terminal
+            rutil.os.system(
+                'setx PATH "' + rutil.os.getcwd() + '\\Tools\platform-tools;%PATH%"'
+            )
+
+            print(f"{Colors['Green']}Cleaning Up{Colors['Reset']}...")
+            rutil.os.remove("Downloads\\plattools.zip")
+
+            # Docker installer will be run with `"Docker Desktop Installer.exe" install --accept-license`
+            if not rutil.checkTool("docker"):
                 rutil.download(
-                    "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
-                    "plattools.zip",
+                    "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe",
+                    "docker-inst.exe",
                 )
-                print("Download Complete - Extracting")
-                rutil.extractZip("Downloads\\plattools.zip", "Tools")
-                rutil.os.system(
-                    'setx PATH "' + rutil.os.getcwd() + '\\Tools\platform-tools;%PATH%"'
+                print(
+                    f"""
+                    [{Colors['Red']}Attention{Colors['Reset']}] : 
+                    {Colors['Red']}Docker installer{Colors['Reset']} will now be executed!
+                    Please, continue with the {Colors['Green']}default settings{Colors['Reset']} installation.
+                    Do not change any configuration, just click '{Colors['Green']}Next{Colors['Reset']}'.
+                    """
                 )
-                print("Platform Tools Installed and added to PATH - Cleaning up")
-                rutil.os.remove("Downloads\\plattools.zip")
-                # Docker installer will be run with `"Docker Desktop Installer.exe" install --accept-license`
-                if not rutil.checkTool("docker"):
-                    rutil.download(
-                        "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe",
-                        "docker-inst.exe",
-                    )
-                    print(
-                        "The Docker Installer will now run. please follow its process to completion with the default install location. Do not log out of Windows. Instead, return here and report when it has succeeded."
-                    )
-                    rutil.os.system("Downloads\\docker-inst.exe --accept-license")
-                    rutil.askUser()
-                    rutil.os.remove("Downloads\\docker-inst.exe")
-                    rutil.os.create()
-                    with open("Tools\\inprogress.cfg", "w") as fp:
-                        pass
-                    raise SystemExit(
-                        "Phase 1 of Setup is complete. Please Reboot your computer and re-run this program to continue setup."
-                    )
-                else:
-                    print("Docker already installed - Skipping")
+
+                # TODO: Automate Docker installation
+
+                rutil.os.system("Downloads\\docker-inst.exe --accept-license")
+                input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to continue ({Colors['Red']}Docker installation has to be finished!{Colors['Reset']})")
+                rutil.os.remove("Downloads\\docker-inst.exe")
+                
+                with open("Tools\\inprogress.cfg", "w") as fp:
+                    pass
+
+                print(f"Please, {Colors['Red']}reboot{Colors['Reset']} your computer and then {Colors['Green']}Execute again{Colors['Reset']} Setup.py file from a terminal!")
+                raise SystemExit()
+            else:
+                print("Docker already installed!")
+
     if resumeSetup or rutil.checkTool("docker"):
         print(
-            "Resuming setup - Preparing Magisk - Docker Desktop will start, this is currently required in order to start the Docker Daemon. Please confirm when it finishes loading"
+            f"""[{Colors['Red']}Resuming setup{Colors['Reset']}]
+            [{Colors['Red']}Preparing Magisk{Colors['Reset']}] : Docker Desktop will start.
+            """
         )
+
         rutil.os.system(
             'start /w "" "C:\\Program Files\\Docker\\Docker\\Docker Desktop.exe"'
         )
-        rutil.askUser("")
+        input(f"Press {Colors['Red']}Enter{Colors['Reset']} key once Docker Desktop is opened : ")
+        
         rutil.download(
             "https://raw.githubusercontent.com/xclusivor/magisk-in-a-box/main/Dockerfile",
             "Dockerfile",
@@ -129,7 +180,7 @@ if not rutil.isSetup():
                 "Docker failed to compile - setup cannot continue. Please resolve the above errors and re-run setup."
             )
 
-    elif mode == 2:
+    elif Platform == 2:
         print("Linux System Setup is currently not implemented. Sorry!")
     # TODO: Do more setup
     print(
