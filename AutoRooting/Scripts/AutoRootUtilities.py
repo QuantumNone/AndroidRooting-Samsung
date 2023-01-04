@@ -28,8 +28,8 @@ def getPlatform() -> int:
 
 # isSetup returns true if setup has been run, or false otherwise. It's that simple.
 def isSetup() -> bool:
-    wd = os.getcwd() + "\\Tools"
-    if os.path.exists(wd):
+    wd = os.getcwd() + "\\Tools\\config.cfg"
+    if os.path.isfile(wd):
         return True
     else: 
         return False
