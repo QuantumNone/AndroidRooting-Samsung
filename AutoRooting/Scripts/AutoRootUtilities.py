@@ -1,6 +1,7 @@
 # [AutoRootUtiilities.py] file will contain several functions, where mostly of them are required for the Setup.py and for Main.py files
 import os, platform, ctypes, shutil, socket, urllib.request, zipfile
-
+from time import sleep
+sleepDelay = 2
 
 # Colors for String formatting :
 Colors = {
@@ -72,7 +73,7 @@ def isElevated():
 
 
 # Returns the free disk space, in bytes
-def getDiskSpace():
+def getDiskSpace() -> int:
     total, used, free = shutil.disk_usage(os.getcwd())
     return free
 
@@ -88,6 +89,10 @@ def isConnected() -> bool:
     except Exception:
         pass
     return False
+
+#This function should be needed
+def AddToEnvironmentPath(Directory):
+    os.system(f'setx PATH = "{Directory};%PATH%"')
 
 
 # Checks if whatever executable provided (as string) exists in $PATH
@@ -154,11 +159,12 @@ def download(URLink: str, FileName: str):  # Downloads a file
 def extractZip(Zip_FileName: str, DestinationPath: str):
     print(
         f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} to {DestinationPath}",
-        end="",
+        end = "",
     )
 
     with zipfile.ZipFile(Zip_FileName, "r") as zip_ref:
         zip_ref.extractall(DestinationPath)
+
     print(f"{Colors['Green']}\tDone!{Colors['Reset']}")
 
 
