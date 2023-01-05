@@ -34,6 +34,7 @@ def askUser(question) -> bool:
 class UnsupportedPlatformError(Exception):
     pass
 
+
 # getPlatform returns variables for supported platforms.
 def getPlatform() -> str:
     if platform.system() == "Windows":
@@ -170,6 +171,3 @@ def checkfile(filename: str):
         return True
     else:
         return False
-
-
-
