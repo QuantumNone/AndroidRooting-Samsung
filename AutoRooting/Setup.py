@@ -1,5 +1,5 @@
 import Scripts.AutoRootUtilities as rutil
-
+ 
 # Colors for String formatting :
 Colors = {
     "Reset": "\033[0m",
@@ -43,63 +43,24 @@ if not rutil.isConnected():
 
     raise SystemExit()
 
-# Checks if the installation has been marked as in progress, and redirects the installer to docker
-# (Docker's first install requires a reboot so that flag serves to not redo the entire installer)
-resumeSetup = False
-if rutil.os.path.isfile("Tools\\inprogress.cfg"):
-    print("Resuming setup")
-    resumeSetup = True
 
-if not rutil.isSetup():
-    if Platform == "Windows":
 
-        if rutil.checkTool("adb") or rutil.checkTool(
-            "fastboot"
-        ):  # Need to create a function that removes these tools from the Environment Path and that removes C:/platform-tools folder
-            raise SystemExit()
-
-        # TODO: replace this check with a WSL check that will determinate if the app present is installer or installed
-        else:
-            print(
-                f"""All the {Colors['Red']}requirements{Colors['Reset']} have been configured correctly!
-                [{Colors['Red']}Setup.py{Colors['Reset']}] will perform an installation of :
-                {Colors['Green']}SDK Platform Tools{Colors['Reset']} : includes tools that interface with the Android platform trough USB Communication [{Colors['Green']}adb&fastboot{Colors['Reset']}]
-                """
-            )
-            print(f"Preparing {Colors['Red']}File Structure{Colors['Reset']}...")
-            try:
-                rutil.os.mkdir("Tools")
-            except FileExistsError:
-                pass
-            try:
-                rutil.os.mkdir("Downloads")
-            except FileExistsError:
-                pass
-            rutil.download(
-                "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
-                "plattools.zip",
-            )
-            print("Download Complete - Extracting")
-            rutil.extractZip("Downloads\\plattools.zip", "Tools")
-            rutil.os.system(
-                'setx PATH "' + rutil.os.getcwd() + '\\Tools\platform-tools;%PATH%"'
-            )
-
-        print(
-            f"{Colors['Green']}Platform Tools Installed and added to PATH - Cleaning Up{Colors['Reset']}..."
-        )
-        rutil.os.remove("Downloads\\plattools.zip")
-        with open("Tools\\config.cfg", "w") as fp:
-            fp.write(
-                "This file exists to validate that setup has been completed - Do not move or delete it."
-            )
-
-    elif Platform == "Linux":
-        print("Linux System Setup is currently not implemented. Sorry!")
-    # TODO: Do more setup
+if Platform == "Windows":
+    #These Tools are general tools, means that we are working with samsung for now and so if a device brand requires specified tool, then it will be installed inside the device brand's function's setup
     print(
-        "To configure device specific options, install drivers, or update any of the installed utilities, run this program again."
+        f"""All the {Colors['Red']}requirements{Colors['Reset']} have been configured correctly!
+        [{Colors['Red']}Setup.py{Colors['Reset']}] will perform an installation of :
+        {Colors['Green']}SDK Platform Tools{Colors['Reset']} : includes tools that interface with the Android platform trough USB Communication [{Colors['Green']}adb&fastboot{Colors['Reset']}]
+        """
     )
-else:
-    print("Setup has already been completed - Opening configuration menu")
-    # TODO: Configuration Menu
+    with open("Tools\\config.cfg", "w") as fp:
+        fp.write(
+            "This file exists to validate that setup has been completed - Do not move or delete it."
+        )
+
+elif Platform == "Linux":
+    print("Linux System Setup is currently not implemented. Sorry!")
+# TODO: Do more setup
+elif Platform == "Darwin":
+    print("MacOS System Setup is currently not implemented. Sorry!")
+
