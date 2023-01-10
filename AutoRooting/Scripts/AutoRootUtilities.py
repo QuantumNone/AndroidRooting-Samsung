@@ -1,5 +1,5 @@
 # [AutoRootUtiilities.py] file will contain several functions, where mostly of them are required for the Setup.py and for Main.py files
-import os, platform, ctypes, shutil, socket, urllib.request, zipfile
+import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess
 from time import sleep
 sleepDelay = 2
 
@@ -16,6 +16,19 @@ Colors = {
     "White": "\033[1;37m",
 }
 # Usage Example : print(Colors["Red"] + 'Color that string' + Colors["Reset"])
+
+
+OSDriveLetter = str(subprocess.check_output(f'echo %USERPROFILE%', stderr=subprocess.STDOUT, shell = True))[2:4] + '\\'
+
+try:
+    os.mkdir("Tools")
+except FileExistsError:
+    pass
+try:
+    os.mkdir("Downloads")
+except FileExistsError:
+    pass
+
 
 
 # Prompts the user (y/n)
@@ -42,6 +55,8 @@ def getPlatform() -> str:
         return "Windows"
     elif platform.system() == "Linux":
         return "Linux"
+    elif platform.system() == "Darwin": #MacOS
+        return "Darwin"
     raise UnsupportedPlatformError(
         f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error."
     )
@@ -70,7 +85,9 @@ def isElevated():
     try:
         return ctypes.windll.shell32.IsUserAnAdmin() == 1
     except AttributeError:
-        raise AdminStateUnknownError("Cannot determine whether the user is an admin!")
+        print("Cannot determinate if program has been executed as Administrator Rights!")
+        input(f"Press {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
+        raise AdminStateUnknownError()
 
 
 # Returns the free disk space, in bytes
@@ -93,12 +110,24 @@ def isConnected() -> bool:
 
 #This function should be needed
 def AddToEnvironmentPath(Directory):
+    print(
+    f'{Colors["Green"]}Adding{Colors["Reset"]} {Directory} to the {Colors["Green"]}User Environment{Colors["Reset"]} Path...'
+    )
     os.system(f'setx PATH = "{Directory};%PATH%"')
+
+
 
 
 # Checks if whatever executable provided (as string) exists in $PATH
 def checkTool(name: str) -> bool:
     return shutil.which(name) is not None
+
+
+def DriverInstaller():
+    """Installs a requested driver"""
+    print('Disabling Windows Driver Signature Verification... ')
+    # os.system('bcdedit /set testsigning on')
+
 
 
 class DownloadFailedError(Exception):
@@ -110,7 +139,7 @@ TryAgainTimes = (
 )
 
 
-def download(URLink: str, FileName: str):  # Downloads a file
+def Download(URLink: str, FileName: str):  # Downloads a file
     DestinationPath = os.getcwd() + "\\Downloads\\" + FileName
     try:
         print(
@@ -124,10 +153,10 @@ def download(URLink: str, FileName: str):  # Downloads a file
 
         if not isConnected():
             print("\t[Please make sure you are connected to Internet!]")
-            Ok_IAmConnected = input(
-                "Press 'Enter' key if you are connected to Internet : "
+            input(
+                f"Press {Colors['Red']}ENTER{Colors['Reset']} key if you are connected to Internet : "
             )  # This input is like a delay : when the user is correctly connected to internet then the program will continue
-            download(URLink, FileName)
+            Download(URLink, FileName)
 
         elif (
             isConnected()
@@ -143,21 +172,23 @@ def download(URLink: str, FileName: str):  # Downloads a file
                         + Colors["Reset"]
                     )
 
-                download(URLink, FileName)
+                Download(URLink, FileName)
             else:
-                raise DownloadFailedError(
-                    "The user stopped the download process - Execution cannot continue."
-                )
+                print("The user stopped the download process - Execution cannot continue.")
+                input(f"Press {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
+                raise DownloadFailedError()
     except:
-        raise DownloadFailedError(
-            f"{FileName} failed to be downloaded for some reason.\nThe application cannot continue."
-        )
+        print(
+            f"""{FileName} failed to be downloaded for some reason.
+            The application cannot continue."""
+            )
+        raise DownloadFailedError()
 
     TryAgainTimes = 0
 
 
 # Extracts a zip
-def extractZip(Zip_FileName: str, DestinationPath: str):
+def ExtractZip(Zip_FileName: str, DestinationPath: str):
     print(
         f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} to {DestinationPath}",
         end = "",
@@ -177,3 +208,102 @@ def checkfile(filename: str):
         return True
     else:
         return False
+
+
+
+def Install_AdbFastboot():
+    Download(
+        URLink = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip",
+        FileName = "platform-tools.zip"
+    )
+
+    ExtractZip(
+        Zip_FileName = "platform-tools.zip",
+        DestinationPath = "Tools"
+    )
+    print(
+        f"{Colors['Red']}Removing{Colors['Reset']} platform-tools.zip",
+        end = ''
+    )
+    os.remove('Downloads\\plattools.zip')
+
+    print(f'\t{Colors["Green"]}Done{Colors["Green"]}!')
+
+    AddToEnvironmentPath(f'{os.getcwd()}\\Tools')
+
+
+def Check_AdbConnection() -> bool:
+    try:
+        AdbDevices_output = subprocess.check_output("adb devices", stderr = subprocess.STDOUT, shell = True).strip()
+        if AdbDevices_output[-6:] == b'device':
+            return True
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        print(
+            f'''
+            {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
+            This could be because Adb&Fastboot or USB Drivers are not correctly installed...'''
+            )
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+        raise SystemExit()
+    
+def Check_FastbootConnection() -> bool:
+    try:
+        FastbootDevices_output = subprocess.check_output("fastboot devices", stderr = subprocess.STDOUT, shell = True).strip()
+        if FastbootDevices_output[-6:] == b'device':
+            return True
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        print(
+            f'''
+            {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
+            This could be because Adb&Fastboot or USB Drivers are not correctly installed...'''
+            )
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+        raise SystemExit()
+
+
+
+def Install_GoogleUSBDriver():  #Required for all devices that use Fastboot Mode
+    pass
+
+def Install_MTKDriver():    #Chinese phones
+    pass
+
+#Other functions for other devices...
+
+def Samsung_Requirements():
+    def Install_SamsungUSBDrivers(InstallationStatus: bool):
+        Download(
+            URLink = "https://developer.samsung.com/sdp/file/2ad30860-0932-44e3-bf63-765a5cfa1010",
+            FileName = "SamsungUSB-installer.exe"
+        )
+
+        #Let's not reboot the computer and try to check if the USB Communication works, if not then the pc will require reboot (Or Windows Driver signature offline)
+        print(
+            f'Please, follow the instructions that the installer shows!'
+        )
+        os.startfile(f'{os.getcwd()}\\Downloads\\SamsungUSB-installer.exe')
+        print('Installation Completed!')
+
+        if not InstallationStatus: #This can be converted into a function like : checkAdbConnection() (If not connected, check USB drivers) 
+            print(
+                f'''
+                The USB communication cannot be enstablished!
+                Try to reboot your computer or try to disable Windows Driver Signature Verification : 
+                \t[{Colors["Blue"]}https://answers.microsoft.com/en-us/windows/forum/all/permanent-disable-driver-signature-verification/009c3498-bef8-4564-bb52-1d05812506e0{Colors["Reset"]}]'''
+            )
+
+    print(
+        f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
+    )
+
+    Install_AdbFastboot()
+    Download(
+        URLink = "https://github.com/topjohnwu/Magisk/releases/download/v25.2/Magisk-v25.2.apk",
+        FileName = "Magisk.apk"
+    )
+
+    #TODO: Create a Firmware donload function and give the user 2 options : update to latest firmware (Need to flash it before patching) or run on current firmware (need PDA and CSS codes)
