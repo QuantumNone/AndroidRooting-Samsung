@@ -1,5 +1,5 @@
 # [AutoRootUtiilities.py] file will contain several functions, where mostly of them are required for the Setup.py and for Main.py files
-import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess
+import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess, requests
 from time import sleep
 sleepDelay = 2
 
@@ -51,12 +51,8 @@ class UnsupportedPlatformError(Exception):
 
 # getPlatform returns variables for supported platforms.
 def getPlatform() -> str:
-    if platform.system() == "Windows":
-        return "Windows"
-    elif platform.system() == "Linux":
-        return "Linux"
-    elif platform.system() == "Darwin": #MacOS
-        return "Darwin"
+    if platform.system() in ["Windows", "Darwin", "Linux"]:
+        return platform.system()
     raise UnsupportedPlatformError(
         f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error."
     )
@@ -65,10 +61,7 @@ def getPlatform() -> str:
 # isSetup returns true if setup has been run, or false otherwise. It's that simple.
 def isSetup() -> bool:
     wd = os.getcwd() + "\\Tools\\config.cfg"
-    if os.path.isfile(wd):
-        return True
-    else:
-        return False
+    return os.path.isfile(wd)
 
 
 # isElevated is the first program here that can actually fail to get a result. This exception is defined for that case.
@@ -235,10 +228,8 @@ def Install_AdbFastboot():
 def Check_AdbConnection() -> bool:
     try:
         AdbDevices_output = subprocess.check_output("adb devices", stderr = subprocess.STDOUT, shell = True).strip()
-        if AdbDevices_output[-6:] == b'device':
-            return True
-        else:
-            return False
+        return AdbDevices_output[-6:] == b'device'
+
     except subprocess.CalledProcessError:
         print(
             f'''
@@ -251,10 +242,8 @@ def Check_AdbConnection() -> bool:
 def Check_FastbootConnection() -> bool:
     try:
         FastbootDevices_output = subprocess.check_output("fastboot devices", stderr = subprocess.STDOUT, shell = True).strip()
-        if FastbootDevices_output[-6:] == b'device':
-            return True
-        else:
-            return False
+        return FastbootDevices_output[-6:] == b'device'
+        
     except subprocess.CalledProcessError:
         print(
             f'''
@@ -272,6 +261,33 @@ def Install_GoogleUSBDriver():  #Required for all devices that use Fastboot Mode
 def Install_MTKDriver():    #Chinese phones
     pass
 
+def Download_Magisk():
+
+    try: #Just check for latest versions of Magisk  --SOME DEVICES NEED CUSTOM MAGISK VERSION!
+        response = requests.get('https://api.github.com/repos/topjohnwu/Magisk/releases?per_page=1').json()[0]
+        html_url = response["html_url"]
+        version = html_url.split("/")[-1]
+        filename = f"Magisk-{version}.apk"
+
+        print(f"")
+
+
+        Download(
+            URLink = f"https://github.com/topjohnwu/Magisk/releases/download/{version}/{filename}",
+            FileName = "Magisk.apk"
+        )
+
+    except: #Shouldn't be a problem if somehow the api doesn't work, magisk will be donloaded on V25.2
+        print(
+            f'''{Colors["Red"]}Failed{Colors["Reset"]} to download the latest version of Magisk!
+            Downloading {Colors["Green"]}Magisk V25.2{Colors["Reset"]}...'''
+        )
+        Download(
+            URLink = f"https://github.com/topjohnwu/Magisk/releases/download/v25.2/Magisk-v25.2.apk",
+            FileName = "Magisk.apk"
+        )
+
+
 #Other functions for other devices...
 
 def Samsung_Requirements():
@@ -288,22 +304,23 @@ def Samsung_Requirements():
         os.startfile(f'{os.getcwd()}\\Downloads\\SamsungUSB-installer.exe')
         print('Installation Completed!')
 
+        #HAVE TO WORK ON THAT
         if not InstallationStatus: #This can be converted into a function like : checkAdbConnection() (If not connected, check USB drivers) 
             print(
                 f'''
                 The USB communication cannot be enstablished!
-                Try to reboot your computer or try to disable Windows Driver Signature Verification : 
+                Try to reboot your computer or try to {Colors["Red"]}disable{Colors["Reset"]} Windows Driver Signature Verification : 
                 \t[{Colors["Blue"]}https://answers.microsoft.com/en-us/windows/forum/all/permanent-disable-driver-signature-verification/009c3498-bef8-4564-bb52-1d05812506e0{Colors["Reset"]}]'''
             )
+
+    def Download_Firmware(DEV_MODEL: str, DEV_REGION: str):
+        pass
 
     print(
         f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
     )
 
     Install_AdbFastboot()
-    Download(
-        URLink = "https://github.com/topjohnwu/Magisk/releases/download/v25.2/Magisk-v25.2.apk",
-        FileName = "Magisk.apk"
-    )
+    Download_Magisk()
 
     #TODO: Create a Firmware donload function and give the user 2 options : update to latest firmware (Need to flash it before patching) or run on current firmware (need PDA and CSS codes)
