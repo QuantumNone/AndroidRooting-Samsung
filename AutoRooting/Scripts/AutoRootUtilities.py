@@ -31,6 +31,28 @@ except FileExistsError:
     pass
 
 
+def CheckFile(Filename: str, Directory = os.getcwd() + '\\'):
+    return os.path.isfile(Directory + Filename)
+
+# Checks if whatever executable provided (as string) exists in $PATH
+def checkTool(name: str) -> bool:
+    return shutil.which(name) is not None
+
+def Pip_Installer(Package: str, Package_Name: str):
+    try:
+        if not checkTool(Package_Name):
+            #sys.executable returns python version
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', Package])
+        else:
+            print(f'{Package_Name} already exists!')
+    except Exception as ex:
+        print(f'An {Colors["Red"]}unknown error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+        raise ex()
+
+
+Pip_Installer('tqdm')
+import tqdm
 
 # Prompts the user (y/n)
 def askUser(question: str) -> bool:
@@ -57,20 +79,6 @@ def getPlatform() -> str:
     raise UnsupportedPlatformError(
         f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error."
     )
-
-
-def CheckFile(Filename: str, Directory = os.getcwd() + '\\'):
-    return os.path.isfile(Directory + Filename)
-
-# Checks if whatever executable provided (as string) exists in $PATH
-def checkTool(name: str) -> bool:
-    return shutil.which(name) is not None
-
-
-# isSetup returns true if setup has been run, or false otherwise. It's that simple.
-def isSetup() -> bool:
-    wd = os.getcwd() + "\\Tools\\config.cfg"
-    return os.path.isfile(wd)
 
 
 # isElevated is the first program here that can actually fail to get a result. This exception is defined for that case.
@@ -123,18 +131,10 @@ def AddToEnvironmentPath(Directory):
     os.system(f'setx PATH = "{Directory};%PATH%"')
 
 
-
-
-# Checks if whatever executable provided (as string) exists in $PATH
-def checkTool(name: str) -> bool:
-    return shutil.which(name) is not None
-
-
 def DriverInstaller():
     """Installs a requested driver"""
     print('Disabling Windows Driver Signature Verification... ')
     # os.system('bcdedit /set testsigning on')
-
 
 
 class DownloadFailedError(Exception):
@@ -148,13 +148,17 @@ TryAgainTimes = (
 
 def Download(URLink: str, FileName: str):  # Downloads a file
     DestinationPath = os.getcwd() + "\\Downloads\\" + FileName
+
     try:
-        print(
-            f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} to {DestinationPath}",
-            end = ''
-        )
-        urllib.request.urlretrieve(URLink, DestinationPath)
-        print(f"      [{Colors['Green']}Done{Colors['Reset']}!]")
+        print(f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} to {DestinationPath}")
+        with tqdm.tqdm(miniters=1, desc=FileName) as DownFile:  #Progress bar
+            urllib.request.urlretrieve(
+                URLink, 
+                DestinationPath, 
+                reporthook = DownFile.update_to
+            )
+        
+        print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
 
     except urllib.error.ContentTooShortError:  # If the download has been interrupted for Connection Lost or the connection was Forcibly closed
         print(f"{Colors['Red']}Failed{Colors['Reset']} to download {FileName}...")
@@ -164,6 +168,7 @@ def Download(URLink: str, FileName: str):  # Downloads a file
             input(
                 f"Press {Colors['Red']}ENTER{Colors['Reset']} key if you are connected to Internet : "
             )  # This input is like a delay : when the user is correctly connected to internet then the program will continue
+            
             Download(URLink, FileName)
 
         elif (
@@ -176,7 +181,7 @@ def Download(URLink: str, FileName: str):  # Downloads a file
                 if TryAgainTimes == 2:
                     raise DownloadFailedError(
                         Colors["Red"]
-                        + f"[The download has failed too many times. Exiting.]"
+                        + f"[The download has failed too many times. Exiting...]"
                         + Colors["Reset"]
                     )
 
@@ -194,31 +199,22 @@ def Download(URLink: str, FileName: str):  # Downloads a file
 
     TryAgainTimes = 0
 
-def Pip_Installer(Package: str, Package_Name: str):
-    try:
-        if not checkTool(Package_Name):
-            #sys.executable returns python version
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', Package])
-        else:
-            print(f'{Package_Name} already exists!')
-    except Exception as ex:
-        print(f'An {Colors["Red"]}unknown error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
-        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
-        raise ex()
-
-
 
 # Extracts a zip
 def ExtractZip(Zip_FileName: str, DestinationPath: str):
-    print(
-        f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} to {DestinationPath}",
-        end = "",
-    )
-
+    print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} to {DestinationPath}")
+    
     with zipfile.ZipFile(Zip_FileName, "r") as zip_ref:
-        zip_ref.extractall(DestinationPath)
+        for member in tqdm.tqdm(zip_ref.infolist(), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'):
+            try:
+                zip_ref.extract(member, DestinationPath)
+            
+            except zipfile.error:
+                print(f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!')
+                input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+                raise SystemExit()
 
-    print(f"      [{Colors['Green']}Done!{Colors['Reset']}]")
+    print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
 
 
 
@@ -371,16 +367,150 @@ def Samsung_Requirements(Phone):
 
     def Download_Firmware():
         def Download_Status(Status: str):
+            #This dict contains all supported firmware regions, there could be a better way to implement this...
+            Samsung_Regions: dict(str, list[str]) = {
+                'Algeria': ['ALG', 'ALR'],
+                'Argentina': ['ANC', 'ARO', 'CTI', 'UFN', 'PSN'],
+                'Aruba': ['ARU'],
+                'Australia': ['OPP', 'OPS', 'VAU', 'XSA', 'TEL', 'HUT'],
+                'Austria': ['AOM', 'DRE', 'MAX', 'MOB', 'MOK', 'ONE', 'TRG', 'ATO'],       
+                'Baltic': ['SEB'],
+                'Belarus': ['MTB', 'VEL'],
+                'Belgium': ['BAE', 'BSE', 'PRO', 'XEB'],
+                'Bosnia-Herzegovina': ['BHO', 'BHT', 'TEB'],
+                'Brazil': ['BTA', 'BTM', 'TMR', 'ZTA', 'ZVV', 'ZTO', 'ZTM'],
+                'Bulgaria': ['CMF', 'GBL', 'MTE', 'MTL', 'OMX', 'PLX', 'VVT'],
+                'Cambodia': ['RCG'],
+                'Canada': ['RGS', 'BMC', 'TLS'],
+                'Chile': ['CHB', 'CHE', 'CHL', 'CHT'],
+                'China': ['CUH', 'INT', 'TEC', 'TIY', 'CMC', 'CHN', 'M00'],
+                'Colombia': ['COB', 'COL', 'COM', 'CGU'],
+                'Costa Rica': ['ICE'],
+                'Croatia': ['CRO', 'TRA', 'TWO', 'VIP'],
+                'Cyprus': ['CYV'],
+                'Czech': ['ETL', 'KBN', 'OSK', 'VDC', 'XCS', 'XEZ', 'TMZ', 'O2C'],
+                'Denmark': ['DTL'],
+                'Dominica': ['CST', 'DCN', 'DOR'],
+                'Dominican Rep': ['CDR', 'TDR'],
+                'Ecuador': ['BBE'],
+                'Egypt': ['EGY'],
+                'El Salvador': ['DGC', 'TBS'],
+                'Finland': ['ELS', 'SAU'],
+                'France': ['OFR', 'AUC', 'BOG', 'COR', 'DIX', 'FTM', 'NRJ', 'ORC', 'ORF', 'SFR', 'UNI', 'VGF', 'XEF'],
+                'Germany': ['DBT', 'DTM', 'DUT', 'EPL', 'MAN', 'MBC', 'VD2', 'VIA', 'XEG'],
+                'Ghana': ['SPN'],
+                'Greece': ['AOC', 'COS', 'EUR', 'GER', 'TGR', 'VGR', 'CYO'],
+                'Guatemala': ['PCS'],
+                'Hong Kong': ['TGY'],
+                'Hungary': ['PAN', 'VDH', 'WST', 'TMO', 'XEH', 'TMH'],
+                'India': ['HFC', 'HYA', 'INA', 'IND', 'INU', 'IMS', 'REL', 'TAT', 'INS'],
+                'Indonesia': ['AXI', 'SAR', 'XSE'],
+                'Iran': ['THR'],
+                'Ireland': ['3IE', 'VDI'],
+                'Israel': ['CEL', 'PCL', 'PTR'],
+                'Italy': ['GOM', 'HUI', 'ITV', 'OMN', 'TIM', 'VOM', 'WIN', 'XET', 'FWB'],
+                'Ivory Coast': ['IRS', 'SIE'],
+                'Jamaica': ['JBS', 'JCN', 'JCW'],
+                'Japan': ['DCM', 'SBM', 'VFK'],
+                'Jordan': ['LEV'],
+                'Kazakhstan': ['EST', 'KCL', 'KMB', 'KZK', 'SKZ'],
+                'Kenya': ['KEL', 'KEN'],
+                'Korea': ['SKT'],
+                'Libyan Arab Rep': ['MMC'],
+                'Lithuania': ['TLT'],
+                'Luxemburg': ['LUX'],
+                'Macao': ['VTN'],
+                'Macedonia': ['TMC', 'MBM'],
+                'Malaysia': ['CCM', 'MXS', 'FMG', 'FME', 'XME'],
+                'Mexico': ['SEM', 'TCE', 'TMM', 'UNE'],
+                'Mongolia': ['MPC'],
+                'Morocco': ['WAN', 'FWD', 'MAT', 'MED', 'SNI', 'MWD'],
+                'Netherlands': ['BEN', 'MMO', 'ONL', 'QIC', 'TFT', 'TNL', 'VDF', 'VDP', 'XEN', 'KPN'],
+                'New Zealand': ['VNZ'],
+                'Nigeria': ['ECT', 'GCR', 'MML'],
+                'Norway': ['TEN'],
+                'Pakistan': ['WDC', 'PAK'],
+                'Panama': ['BPC', 'PCW', 'PBS'],
+                'Peru': ['PEB', 'PET', 'SAM'],
+                'Philippines': ['FAM', 'XTC', 'GLB', 'XTE', 'SMA'],
+                'Poland': ['ERA', 'IDE', 'PLS', 'PRT', 'XEO'],
+                'Portugal': ['OPT', 'TMN', 'TPH', 'XEP', 'TCL'],
+                'Puerto Rico': ['CEN', 'PCI', 'TPR'],
+                'Romania': ['CNX', 'HAT', 'ORO', 'COA'],
+                'Russia': ['AZC', 'BLN', 'EMT', 'ERS', 'GEO', 'MTV', 'SER', 'SNT'],
+                'Saudi Arabi': ['JED'],
+                'Serbia Montenegro': ['MSR', 'PMN', 'SMO', 'TSR', 'TOP'],
+                'Singapore': ['BGD', 'XSO', 'XSP'],
+                'Slovakia': ['GTL', 'IRD', 'TMS', 'ORS'],
+                'Slovenia': ['MOT', 'SIM'],
+                'South Africa': ['XFA', 'XFC', 'XFM', 'XFV', 'XFE'],
+                'South West Asia': ['SWA'],
+                'Spain': ['AMN', 'EUS', 'FOP', 'XEC', 'ATL'],
+                'Sweden': ['BAU', 'BCN', 'BME', 'BSG', 'BTH', 'COV', 'HTS', 'SEN', 'TET', 'TLA', 'XEE', 'VDS', 'TNO'],
+                'Switzerland': ['AUT', 'ORG', 'MOZ', 'SUN', 'SWC'],
+                'Taiwan': ['TWM', 'BRI', 'TCC', 'TCI', 'CWT'],
+                'Tanzania': ['SOL'],
+                'Temporary': ['TEM'],
+                'Thailand': ['CAT', 'THE', 'THL', 'THO', 'THS'],
+                'The UAE': ['MID', 'ARB', 'XSG', 'AFR', 'ITO'],
+                'The UK': ['BTC', 'O2I', 'O2U', 'ORA', 'TMU', 'TSC', 'VOD', 'XEU', 'VIR', 'H3G', 'CPW'],
+                'The USA': ['AWS', 'DOB', 'TMB', 'CLW'],
+                'Tunisia': ['ABS', 'RNG'],
+                'Turkey': ['BAS', 'KVK', 'TUR', 'TLP', 'TRC'],
+                'Ukraine': ['KVR', 'SEK', 'UMC'],
+                'Uzbekistan': ['UZB'],
+                'Venezuela': ['VMT'],
+                'Vietnam': ['XXV', 'PHU', 'XEV', 'DNA', 'FPT', 'SPT', 'TLC', 'VTC', 'VTL']
+            }
+
+            def Get_WorkingVersion():   #If the user's phone's region cannot be found inside Samsung Firmware server then we get any available ("wrong" region won't cause any brick)
+                for country in Samsung_Regions: #country = 'Algeria'
+                    for region in Samsung_Regions[country]: #region = 'ALG' then region = 'ALR'...
+                        try: #If the region is found then we get it's version
+                            versions = str(
+                                subprocess.check_output(
+                                    f'samloader -m {Phone.Model} -r {region} checkupdate', 
+                                    stderr = subprocess.STDOUT, 
+                                    shell = True), 
+                                encoding = 'utf-8')[:-2]
+
+                            print(f'Found a downloadable firmware region ["{Colors["Green"]}{country}{Colors["Reset"]}" : {region}]!')
+                            Phone.Region = region #Important : change user's phone's region information because this firmware will be flashed on the device...
+                            return versions
+                        except:
+                            print(f'Trying with "{Colors["Grey"]}{region}{Colors["Reset"]}"... \t[{Colors["Red"]}Not worked{Colors["Reset"]}!]')
+                            pass
+
+                print(f'Cannot find any {Phone.Model} firmware version!')
+                input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+                raise SystemExit()  #This is raised if no region has been found, because if found then the execution of this function terminates with the return statement 'return versions'
+
             path = os.getcwd() + "\\Downloads\\"
-            versions = str(subprocess.check_output(f'samloader -m GT-I8190N -r XME checkupdate', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8')[:-2]
+            try: #This is the first check : if the region given from adb is not found then samloader raises an Exception, so we check if there is any region available for this device
+                versions = str(
+                    subprocess.check_output(
+                        f'samloader -m {Phone.Model} -r {Phone.Region} checkupdate', 
+                        stderr = subprocess.STDOUT, 
+                        shell = True), 
+                    encoding = 'utf-8')[:-2]
+
+            except Exception:
+                    print(f'{Colors["Red"]}Cannot{Colors["Reset"]} find any version on "{Colors["Green"]}{Phone.Region}{Colors["Reset"]}" Region!')
+                    if askUser(f'Do you want to download any other firmware version [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
+                        versions = Get_WorkingVersion()
+                    else:
+                        raise SystemExit()
+
             if Status == 'New Download':
-                try:
+                try:    #Need to check if some firmwares have .enc2 extension, because if so then samloader will raise an error during decrypting
                     os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-file {path + "Firmware.zip.enc4"}')
+                
                 except ConnectionAbortedError:
                     print(f'Your {Colors["Red"]}internet connection{Colors["Reset"]} has been stopped or aborted!\nPlease {Colors["Green"]}check{Colors["Reset"]} your internet connection!')
                     input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to confirm if your internet connection works : ")
+                    
                     if isConnected():
-                        Download_Status(Status = 'Resume Downlad') 
+                        Download_Status(Status = 'Resume Downlad')
                     else:
                         raise SystemExit()
                 
@@ -389,21 +519,23 @@ def Samsung_Requirements(Phone):
                     input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
                     raise SystemExit()
 
-            elif Status == 'Resume Download':
+            elif Status == 'Resume Download': #This is helpfull when the user gets its firmware file corrupted or stopped cause of internet or keyboard issue
                 print(f'{Colors["Green"]}Resuming{Colors["Reset"]} the download...')
-                try:
-                    os.system(f'samloader --dev-model GT-I8190N --dev-region XME download --resume --fw-ver {versions} --do-decrypt --out-dir {path}')
+                try: #There could be an error here : if the download stops during 'download process' then it will run without issues BUT 
+                    #if samloader was decrypting the file and something happens and we resume download then the file extension changes from .zip (changed from .enc4 by samloader during decrypting) then the decryption won't work...
+                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --resume --fw-ver {versions} --do-decrypt --out-file {path + "Firmware.zip.enc4"}')
 
                 except ConnectionAbortedError:
                     print(f'Your internet connection has been stopped or aborted!\nPlease check your internet connection!')
                     input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to confirm if your internet connection works : ")
+                    
                     if isConnected():
                         Download_Status(Status = 'Resume Downlad') 
                     else:
                         raise SystemExit()
 
                 except Exception as ex:
-                    print('Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    print(f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
                     input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
                     raise SystemExit()
 
@@ -414,7 +546,21 @@ def Samsung_Requirements(Phone):
         Pip_Installer(Package = 'git+https://github.com/samloader/samloader.git', Package_Name = 'samloader')
 
         print(f'Your device ({Phone.Model}) is currently running on Android V{Phone.AndroidVersion} and {Phone.PDA} version.\t[Region : {Phone.Region}]\n')
+        
         Download_Status('New Download')
+        print(f'Firmware has been downloaded correctly!')
+        sleep(sleepDelay)
+        
+        ExtractZip(
+            Zip_FileName = os.getcwd() + '\\Downloads\\Firmware.zip',
+            DestinationPath = os.getcwd() + '\\Downloads\\Firmware'
+        )
+
+        if askUser(f'Do you want to delete Firmware.zip to free up disk space in your pc [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
+            os.remove(os.getcwd() + '\\Downloads\\Firmware.zip')
+
+
+
 
 
     def Unlock_Bootloader():
