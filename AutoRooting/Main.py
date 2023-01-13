@@ -36,7 +36,7 @@ def GetPhoneInformations() -> dict[str, str]:
     for Info in PhoneInformations:
         try:
                                                                                                                                                 #Need to format this : b'[ro.build.display.id]: [KTU84P.J100HXCS0AQC2]\r\r\n'   to  "KTU84P.J100HXCS0AQC2"
-            PhoneInformations[Info] = str(subprocess.check_output(f'adb shell getprop | findstr "{PhoneInformations[Info]}"', stderr = subprocess.STDOUT, shell = True)).split(': [')[1].split(']')[0]
+            PhoneInformations[Info] = str(subprocess.check_output(f'adb shell getprop | findstr "{PhoneInformations[Info]}"', stderr = subprocess.STDOUT, shell = True)).split(': [')[1].split(']')[0].upper()
             print(f'{Colors["Green"]}Got{Colors["Reset"]} device {Info} : {PhoneInformations[Info]}')
 
         except:
