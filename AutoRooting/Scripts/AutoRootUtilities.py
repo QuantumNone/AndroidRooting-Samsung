@@ -1,14 +1,15 @@
 # [AutoRootUtiilities.py] file will contain several functions, where mostly of them are required for the Setup.py and for Main.py files
-import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess, requests
+import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess, requests, sys
 from time import sleep
 sleepDelay = 2
 
 # Colors for String formatting :
-Colors = {
+Colors: dict[str, str] = {
     "Reset": "\033[0m",
     "Grey": "\033[1;30m",
     "Red": "\033[1;31m",
     "Green": "\033[1;32m",
+    "Green_Highlight": "\033[1;42m",
     "Yellow": "\033[1;33m",
     "Blue": "\033[1;34m",
     "Magenta": "\033[1;35m",
@@ -32,10 +33,10 @@ except FileExistsError:
 
 
 # Prompts the user (y/n)
-def askUser(question) -> bool:
+def askUser(question: str) -> bool:
     while "the answer is invalid":
         reply = (
-            str(input(question + Colors["Green"] + " (Y/N) : " + Colors["Reset"]))
+            str(input(question + Colors["Green"] + "  (Y/N) : " + Colors["Reset"]))
             .lower()
             .strip()
         )
@@ -56,6 +57,14 @@ def getPlatform() -> str:
     raise UnsupportedPlatformError(
         f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error."
     )
+
+
+def CheckFile(Filename: str, Directory = os.getcwd() + '\\'):
+    return os.path.isfile(Directory + Filename)
+
+# Checks if whatever executable provided (as string) exists in $PATH
+def checkTool(name: str) -> bool:
+    return shutil.which(name) is not None
 
 
 # isSetup returns true if setup has been run, or false otherwise. It's that simple.
@@ -91,14 +100,19 @@ def getDiskSpace() -> int:
 
 # Checks if dns exists and can ping a known good server
 def isConnected() -> bool:
+    print('Running Connection Test...')
+    print('Connection Status : ', end = '')
     REMOTE_SERVER = "one.one.one.one"
     try:
         host = socket.gethostbyname(REMOTE_SERVER)
         s = socket.create_connection((host, 80), 2)
         s.close()
+        print(f'\t\t[{Colors["Green"]}Online!{Colors["Reset"]}]')
         return True
     except Exception:
         pass
+    
+    print(f'\t\t[{Colors["Red"]}Offline!{Colors["Reset"]}]')
     return False
 
 #This function should be needed
@@ -136,10 +150,11 @@ def Download(URLink: str, FileName: str):  # Downloads a file
     DestinationPath = os.getcwd() + "\\Downloads\\" + FileName
     try:
         print(
-            f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} to {DestinationPath}"
+            f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} to {DestinationPath}",
+            end = ''
         )
         urllib.request.urlretrieve(URLink, DestinationPath)
-        print(f"{Colors['Green']}\tDone!{Colors['Reset']}")
+        print(f"      [{Colors['Green']}Done{Colors['Reset']}!]")
 
     except urllib.error.ContentTooShortError:  # If the download has been interrupted for Connection Lost or the connection was Forcibly closed
         print(f"{Colors['Red']}Failed{Colors['Reset']} to download {FileName}...")
@@ -179,6 +194,19 @@ def Download(URLink: str, FileName: str):  # Downloads a file
 
     TryAgainTimes = 0
 
+def Pip_Installer(Package: str, Package_Name: str):
+    try:
+        if not checkTool(Package_Name):
+            #sys.executable returns python version
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', Package])
+        else:
+            print(f'{Package_Name} already exists!')
+    except Exception as ex:
+        print(f'An {Colors["Red"]}unknown error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+        raise ex()
+
+
 
 # Extracts a zip
 def ExtractZip(Zip_FileName: str, DestinationPath: str):
@@ -190,17 +218,49 @@ def ExtractZip(Zip_FileName: str, DestinationPath: str):
     with zipfile.ZipFile(Zip_FileName, "r") as zip_ref:
         zip_ref.extractall(DestinationPath)
 
-    print(f"{Colors['Green']}\tDone!{Colors['Reset']}")
+    print(f"      [{Colors['Green']}Done!{Colors['Reset']}]")
 
 
-# This checks for the existance of a file within the AutoRooting directory, using relative paths.
-# Inputs should be formatted so AutoRooting/Downloads/Dockerfile is input as Downloads/Dockerfile
-def checkfile(filename: str):
-    basepath = os.getcwd() + "\\"
-    if os.path.isfile(basepath + filename):
-        return True
-    else:
-        return False
+
+
+# The user has to follow these steps in order to be able to use Adb
+def SetupDeviceForUSBCommunication():
+    """User has to MANUALLY setup his device to start USB communication"""
+
+    def DelayedPrint(string: str, sleepDelay: float) -> None:
+        for line in string.split('\n'):
+            print(line)
+            sleep(sleepDelay)
+
+    instructions = f'''
+
+    1. Open your device {Colors["Green"]}settings{Colors["Reset"]} and navigate into "About my phone" option.
+    2. Search for "{Colors["Red"]}Build number{Colors["Reset"]}" option inside these settings (if you cannot find it try in "{Colors["Green"]}Software Information{Colors["Reset"]}" option).
+    3. Tap 7 times on "Build number" option to enable {Colors["Red"]}Developer Options{Colors["Reset"]}.
+    4. Go back to settings and {Colors["Red"]}search{Colors["Reset"]} for Developer Options.
+    5. Search for "{Colors["Red"]}USB debugging{Colors["Reset"]}" option and {Colors["Green"]}enable{Colors["Reset"]} it.
+    6. {Colors["Green"]}Connect{Colors["Reset"]} now your device to your computer trough USB cable and check your device screen.
+    7. {Colors["Green"]}Allow{Colors["Reset"]} the pop-up asking for computer permissions.
+    8. Now search inside Developer Options for "{Colors["Red"]}Select USB configuration{Colors["Reset"]}".
+    9. Click it and select "{Colors["Green"]}MTP File transfer{Colors["Reset"]}" protocol.'''
+
+    DelayedPrint(instructions, sleepDelay)
+
+    input(f'\n\t=> Press {Colors["Green"]}Enter{Colors["Reset"]} key to continue : ')
+
+    print(f'\n    10. Now search for "{Colors["Red"]}OEM Unlocking{Colors["Reset"]}" option in Developer options and {Colors["Green"]}ENABLE{Colors["Reset"]} it!')
+    print(
+        f'''
+        {Colors["Red"]}IF{Colors["Reset"]} YOU CANNOT FIND THAT OPTION THEN LOOK AT THESE DOCUMENTATION :
+        \t1. "{Colors["Blue"]}https://krispitech.com/fix-the-missing-oem-unlock-in-developer-options/{Colors["Reset"]}"
+        \t2. "{Colors["Blue"]}https://www.quora.com/Why-do-some-mobile-companies-refuse-to-unlock-bootloaders-like-Huawei-and-Realme{Colors["Reset"]}"
+        '''
+        )
+
+    input(f'\n\t=> Press {Colors["Green"]}Enter{Colors["Reset"]} key to continue : ')
+    print()
+
+
 
 
 
@@ -220,7 +280,7 @@ def Install_AdbFastboot():
     )
     os.remove('Downloads\\plattools.zip')
 
-    print(f'\t{Colors["Green"]}Done{Colors["Green"]}!')
+    print(f'      [{Colors["Green"]}Done{Colors["Green"]}!]')
 
     AddToEnvironmentPath(f'{os.getcwd()}\\Tools')
 
@@ -254,7 +314,6 @@ def Check_FastbootConnection() -> bool:
         raise SystemExit()
 
 
-
 def Install_GoogleUSBDriver():  #Required for all devices that use Fastboot Mode
     pass
 
@@ -268,9 +327,6 @@ def Download_Magisk():
         html_url = response["html_url"]
         version = html_url.split("/")[-1]
         filename = f"Magisk-{version}.apk"
-
-        print(f"")
-
 
         Download(
             URLink = f"https://github.com/topjohnwu/Magisk/releases/download/{version}/{filename}",
@@ -290,7 +346,7 @@ def Download_Magisk():
 
 #Other functions for other devices...
 
-def Samsung_Requirements():
+def Samsung_Requirements(Phone):
     def Install_SamsungUSBDrivers(InstallationStatus: bool):
         Download(
             URLink = "https://developer.samsung.com/sdp/file/2ad30860-0932-44e3-bf63-765a5cfa1010",
@@ -313,8 +369,105 @@ def Samsung_Requirements():
                 \t[{Colors["Blue"]}https://answers.microsoft.com/en-us/windows/forum/all/permanent-disable-driver-signature-verification/009c3498-bef8-4564-bb52-1d05812506e0{Colors["Reset"]}]'''
             )
 
-    def Download_Firmware(DEV_MODEL: str, DEV_REGION: str):
-        pass
+    def Download_Firmware():
+        def Download_Status(Status: str):
+            path = os.getcwd() + "\\Downloads\\"
+            versions = str(subprocess.check_output(f'samloader -m GT-I8190N -r XME checkupdate', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8')[:-2]
+            if Status == 'New Download':
+                try:
+                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-dir {path}')
+                except ConnectionAbortedError:
+                    print(f'Your {Colors["Red"]}internet connection{Colors["Reset"]} has been stopped or aborted!\nPlease {Colors["Green"]}check{Colors["Reset"]} your internet connection!')
+                    input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to confirm if your internet connection works : ")
+                    if isConnected():
+                        Download_Status(Status = 'Resume Downlad') 
+                    else:
+                        raise SystemExit()
+                
+                except Exception as ex:
+                    print(f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+                    raise SystemExit()
+
+            elif Status == 'Resume Download':
+                print(f'{Colors["Green"]}Resuming{Colors["Reset"]} the download...')
+                try:
+                    os.system(f'samloader --dev-model GT-I8190N --dev-region XME download --resume --fw-ver {versions} --do-decrypt --out-dir {path}')
+
+                except ConnectionAbortedError:
+                    print(f'Your internet connection has been stopped or aborted!\nPlease check your internet connection!')
+                    input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to confirm if your internet connection works : ")
+                    if isConnected():
+                        Download_Status(Status = 'Resume Downlad') 
+                    else:
+                        raise SystemExit()
+
+                except Exception as ex:
+                    print('Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+                    raise SystemExit()
+
+        
+        print(f'''
+                    [Firmware Downloader] by (@Samloader)
+        ''')
+        Pip_Installer(Package = 'git+https://github.com/samloader/samloader.git', Package_Name = 'samloader')
+
+        print(f'Your device ({Phone.Model}) is currently running on Android V{Phone.AndroidVersion} and {Phone.PDA} version.\t[Region : {Phone.Region}]\n')
+        Download_Status('New Download')
+
+
+    def Unlock_Bootloader():
+        print(f'''\n
+        [{Colors["Red"]}Bootloader unlock{Colors["Reset"]} Step]\t[{Colors["Green"]}Advance Download Mode{Colors["Reset"]}]
+        \t\t[{Colors["Red"]}All phone data will be erased{Colors["Reset"]}!]
+        1. {Colors["Red"]}Unplug{Colors["Reset"]} phone cable from pc and {Colors["Red"]}power off{Colors["Reset"]} your phone.
+        2. Press and hold {Colors["Red"]}volume up{Colors["Reset"]} and {Colors["Red"]}volume down{Colors["Reset"]} buttons {Colors["Green"]}and{Colors["Reset"]} (while holding) connect the USB cable to the computer.
+        \t[{Colors["Red"]}IF{Colors["Reset"]} your phone has {Colors["Red"]}BIXBI button{Colors["Reset"]} then press and hold it too!]
+        3. You can release buttons once a {Colors["Blue"]}blue screen{Colors["Reset"]} appears.
+        
+        You should now see a screen like this :
+            {Colors["Green_Highlight"]}A custom OS can cause critical problems{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}in phone and installed applications.{Colors["Reset"]} 
+        
+            {Colors["Green_Highlight"]}if you want to download a custom OS,{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}press the volume up key.{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}Otherwise, press the volume down key to cancel.{Colors["Reset"]} 
+
+            \b\b---------------------------------------------------
+
+            {Colors["Green_Highlight"]}Volume up: Continue{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}Volume up long press: Device unlock mode{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}Volume down: Cancel (restart phone){Colors["Reset"]} 
+
+        4. Press and hold volume up button until see {Colors["Red"]}bootloader unlock menu{Colors["Reset"]}.
+        5. Press again the volume up button to {Colors["Green"]}confirm{Colors["Reset"]} the bootloader unlock process.
+
+        The phone will now reboot.
+        ''')
+        
+        input(f'Press {Colors["Green"]}ENTER{Colors["Reset"]} {Colors["Red"]}if{Colors["Reset"]} the phone has been rebooted : ')
+
+        print(f'''
+        Your phone has now been rebooted into {Colors["Blue"]}Welcome Screen{Colors["Reset"]}.
+        Configure all you need to finish the Welcome Screen's setup.     [You can also skip this configuration, just click on "Next"]
+        Open your system settings and {Colors["Red"]}configure{Colors["Reset"]} WI-FI network.      [{Colors["Red"]}Important{Colors["Reset"]}!]
+
+        Once done enable again developer options.
+        ''')
+        if askUser('Need help on how to enable Developer options?'):
+            SetupDeviceForUSBCommunication()
+        
+        if askUser('Is "OEM Unlocking" option "greyed out"?'):
+                print(f'[{Colors["Red"]}Great{Colors["Reset"]}!]\nYour phone\'s bootloader has been {Colors["Green"]}unlocked correctly{Colors["Reset"]}!') 
+        else:
+            print("This means your phone's bootloader hasn't been unlocked correctly!")
+            if askUser('Wanna continue anyway?'):
+                print(f"[{Colors['Green']}Ok!{Colors['Reset']}]")
+            else:
+                input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+                raise SystemExit()
+
 
     print(
         f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
