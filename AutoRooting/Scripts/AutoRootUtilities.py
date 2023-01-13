@@ -375,7 +375,7 @@ def Samsung_Requirements(Phone):
             versions = str(subprocess.check_output(f'samloader -m GT-I8190N -r XME checkupdate', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8')[:-2]
             if Status == 'New Download':
                 try:
-                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-dir {path}')
+                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-file {path + "Firmware.zip.enc4"}')
                 except ConnectionAbortedError:
                     print(f'Your {Colors["Red"]}internet connection{Colors["Reset"]} has been stopped or aborted!\nPlease {Colors["Green"]}check{Colors["Reset"]} your internet connection!')
                     input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to confirm if your internet connection works : ")
