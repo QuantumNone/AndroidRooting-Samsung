@@ -7,6 +7,7 @@ from Scripts.AutoRootUtilities import *
 
 def Welcome_Screen():
     #...
+    #Need to advice the user that this tool could brick his device and so the user  HAS to accept, when he downloads the software, that the software will not be responsable for any damage! 
     input('Rooting will erase all your phone data.\nContinue?')
 
 
