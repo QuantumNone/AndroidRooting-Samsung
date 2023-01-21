@@ -1,5 +1,7 @@
+
 # [AutoRootUtiilities.py] file will contain several functions, where mostly of them are required for the Setup.py and for Main.py files
-import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess, requests, sys
+
+import os, platform, ctypes, shutil, socket, urllib.request, zipfile, subprocess, requests, sys, tarfile
 from time import sleep
 sleepDelay = 2
 
@@ -19,44 +21,58 @@ Colors: dict[str, str] = {
 # Usage Example : print(Colors["Red"] + 'Color that string' + Colors["Reset"])
 
 OSDriveLetter = str(subprocess.check_output(f'echo %USERPROFILE%', stderr = subprocess.STDOUT, shell = True))[2:4] + '\\'
-
-try:
-    os.mkdir("Tools")
-except FileExistsError:
-    pass
-try:
-    os.mkdir("Downloads")
-except FileExistsError:
-    pass
+DownloadsFolder = os.getcwd() + '\\Downloads\\'
+ToolsFolder = os.getcwd() + '\\Tools\\'
 
 
-def exit(Error: function, message: str) -> Exception:
-    print(message)
+os.mkdir("Tools", "Downloads", exist_ok = True)
+
+
+def Quit(ExceptionName: Exception, Message: str) -> Exception:
+    print(Message)
     input(f"Press {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
-    raise Error
+    raise ExceptionName
 
-def find_files(root_dir: str, extension: str, file_name: str):
-    return [f for f in os.listdir(root_dir) if f.endswith(f'.{extension}') and f.startswith(file_name)]
+def find_files(root_dir: str, extension: str, file_name: str, NoExtension: bool = False) -> list[str]:
+    #This is because some files (such as boot.img) are renamed with an other extension, for example lz4
+    return [root_dir + f for f in os.listdir(root_dir) if (f.startswith(file_name) and (NoExtension or f.endswith(f'.{extension}')))]
 
-def CheckFile(Filename: str, Directory = os.getcwd() + '\\'):
-    return os.path.isfile(Directory + Filename)
+def CheckFile(Filename: str, Directory = f'{os.getcwd()}\\') -> bool:
+    return os.path.isfile(f'{Directory}{Filename}')
 
 # Checks if whatever executable provided (as string) exists in $PATH
 def checkTool(name: str) -> bool:
     return shutil.which(name) is not None
 
 def Pip_Installer(Package: str, Package_Name: str = '') -> None:
-    if Package_Name == '': Package_Name = Package
+    if not Package_Name: 
+        Package_Name = Package
     try:
         #sys.executable returns python version
-        subprocess.check_call([sys.executable, '-m', 'pip', '-q', 'install', Package])
-
-    except Exception as ex:
-        exit(Error = ex(), Message = f'An {Colors["Red"]}Unknown Error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
+        subprocess.run([sys.executable, '-m', 'pip', 'install', Package], check=True)
+    except subprocess.CalledProcessError as ex:
+        Quit(ExceptionName = ex(), Message = f'An {Colors["Red"]}Unknown Error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
 
 
 Pip_Installer(Package = 'tqdm')
-import tqdm
+from tqdm import tqdm
+
+def Extract_tar(file_path: str, extract_path: str) -> None:
+    print(f"{Colors['Green']}Extracting{Colors['Reset']} {file_path} {Colors['Green']}to{Colors['Reset']} {extract_path}")
+    with tarfile.open(file_path, "r") as tar:
+        files = tar.getmembers()
+        for file in tqdm(files, desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'):
+            tar.extract(file, path = extract_path)
+
+    print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
+
+def Create_tar(file_path: str, directory: str) -> None:
+    print(f"{Colors['Green']}Extracting{Colors['Reset']} {file_path} {Colors['Green']}to{Colors['Reset']} {directory}")
+    with tarfile.open(file_path, "w") as tar:
+        for file in tqdm(os.listdir(directory), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'):
+            tar.add(os.path.join(directory, file), arcname = file)
+
+    print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
 
 # Prompts the user (y/n)
 def askUser(question: str) -> bool:
@@ -66,10 +82,8 @@ def askUser(question: str) -> bool:
             .lower()
             .strip()
         )
-        if reply == "yes":
-            return True
-        if reply == "no":
-            return False
+        if reply == "yes": return True
+        if reply == "no": return False
 
 def askUserForChoice(question: str, Choice1: str, Choice2: str) -> None:
     while "the answer is invalid":
@@ -78,73 +92,50 @@ def askUserForChoice(question: str, Choice1: str, Choice2: str) -> None:
             .lower()
             .strip()
         )
-        if reply == Choice1.lower():
-            return True
-        if reply == Choice2.lower():
-            return False
-
+        if reply == Choice1.lower(): return True
+        if reply == Choice2.lower(): return False
 
 class UnsupportedPlatformError(Exception):
     pass
-
 
 # getPlatform returns variables for supported platforms.
 def getPlatform() -> str:
     if platform.system() in ["Windows", "Darwin", "Linux"]:
         return platform.system()
-    raise UnsupportedPlatformError(
-        f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error."
-    )
+    Quit(ExceptionName = UnsupportedPlatformError(), Message = f"{Colors['Red']}Unsupported Platform! {Colors['Reset']}\nOnly Windows or Linux are supported.\nIf you are on a Windows or Linux machine, please report this error.")
 
-
-# isElevated is the first program here that can actually fail to get a result. This exception is defined for that case.
-class AdminStateUnknownError(Exception):
-    pass
-
-
-# Checks if the script has Elevated Priviledges. On Linux, this means uid 0, while on wnidows we check if user is an admin.
+# Checks if the script has Elevated Priviledges only on Windows! In case this program will run on Unix-like systems then need to modify this function 
 def isElevated():
     try:
-        return os.getuid() == 0
-    except AttributeError:
-        pass
-    try:
         return ctypes.windll.shell32.IsUserAnAdmin() == 1
-    except AttributeError:
-        exit(Error = AdminStateUnknownError(), Message = 'Cannot determinate if program has been executed as Administrator Rights!')
-
+    except:
+        return False
 
 # Returns the free disk space, in bytes
 def getDiskSpace() -> int:
-    total, used, free = shutil.disk_usage(os.getcwd())
-    return free
+    return shutil.disk_usage(os.getcwd())[2] #Free memory available
 
 
 # Checks if dns exists and can ping a known good server
 def isConnected() -> bool:
     print('Running Connection Test...')
     print('Connection Status : ', end = '')
-    REMOTE_SERVER = "one.one.one.one"
     try:
-        host = socket.gethostbyname(REMOTE_SERVER)
-        s = socket.create_connection((host, 80), 2)
-        s.close()
+        urllib.request.urlopen('http://google.com', timeout=2)
         print(f'\t\t[{Colors["Green"]}Online!{Colors["Reset"]}]')
         return True
-    except Exception:
-        pass
+    except urllib.error.URLError:
+        print(f'\t\t[{Colors["Red"]}Offline!{Colors["Reset"]}]')
+        return False
     
-    print(f'\t\t[{Colors["Red"]}Offline!{Colors["Reset"]}]')
-    return False
 
-#This function should be needed
-def AddToEnvironmentPath(Directory):
-    if not {Directory} in subprocess.check_output('echo Path', stderr = subprocess.STDOUT, shell = True):
-        print(
-        f'{Colors["Green"]}Adding{Colors["Reset"]} {Directory} to the {Colors["Green"]}User Environment{Colors["Reset"]} Path...'
-        )
-        os.system(f'setx PATH = "{Directory};%PATH%"')
-
+#This function adds a path to Windows Environment path and will be removed once the session (program) will be closed
+def AddToEnvironmentPath(Directory: str) -> None:
+    path = os.environ["PATH"]
+    if Directory not in path.split(os.pathsep):
+        print(f'{Colors["Green"]}Adding{Colors["Reset"]} {Directory} to the {Colors["Green"]}User Environment{Colors["Reset"]} Path Temporally...', end = '')
+        os.environ["PATH"] = f"{Directory}{os.pathsep}{path}"
+        print(f'\t\t[{Colors["Green"]}Done!{Colors["Reset"]}]')
 
 def DriverInstaller():
     """Installs a requested driver"""
@@ -155,27 +146,29 @@ def DriverInstaller():
 class DownloadFailedError(Exception):
     pass
 
-TryAgainTimes = (
-    0  # This lets the code know that the download has been re-started more than N times
-)
-
-def Download(URLink: str, FileName: str):  # Downloads a file
-    DestinationPath = os.getcwd() + "\\Downloads\\" + FileName
-
+def Download(URLink: str, FileName: str, retries: int = 2) -> None:
     try:
-        print(f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} to {DestinationPath}")
-        with tqdm.tqdm(miniters=1, desc=FileName) as DownFile:  #Progress bar
+        if os.path.getsize(DownloadsFolder + FileName) == 0:
+            os.remove(DownloadsFolder + FileName)
+
+        if FileName in os.listdir(DownloadsFolder):
+            return
+    except:
+        pass
+
+    DestinationPath = DownloadsFolder + FileName
+    try:
+        print(f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
+        with tqdm(miniters=1, desc = f'{Colors["Green"]}Download progress{Colors["Reset"]}') as DownFile:  #Progress bar
             urllib.request.urlretrieve(
                 URLink, 
                 DestinationPath, 
-                reporthook = DownFile.update_to
+                reporthook = DownFile.update()
             )
-        
         print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
 
     except urllib.error.ContentTooShortError:  # If the download has been interrupted for Connection Lost or the connection was Forcibly closed
         print(f"{Colors['Red']}Failed{Colors['Reset']} to download {FileName}...")
-
         if not isConnected():
             print("\t[Please make sure you are connected to Internet!]")
             input(
@@ -188,35 +181,32 @@ def Download(URLink: str, FileName: str):  # Downloads a file
             isConnected()
         ):  # If the connection is stable then the connection was Forcibly closed by AntiVirus or an other process.
             print("\t[The download process has been stopped from an unknown source!]")
-
-            if askUser("Would you like to retry?"):
-                TryAgainTimes += 1
-                if TryAgainTimes == 2:
-                    exit(
-                        Error = DownloadFailedError(), 
-                        Message =f'The download has {Colors["Red"]}failed{Colors["Reset"]} too many times.'
-                        )
-
-                Download(URLink, FileName)
-            else:
-                exit(Error = DownloadFailedError(), Message = "The user stopped the download process - Execution cannot continue.")
+        if retries > 0:
+            Download(URLink, FileName, retries - 1)
     except:
-        exit(Error = DownloadFailedError(), Message = f"{FileName} failed to be downloaded for some reason.")
-
-    TryAgainTimes = 0
+        Quit(ExceptionName = DownloadFailedError(), Message = f"{FileName} failed to be downloaded for some reason.")
 
 
-# Extracts a zip
-def ExtractZip(Zip_FileName: str, DestinationPath: str):
-    print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} to {DestinationPath}")
+# Gets zip file name and extracts its contents inside a path : Zip_FileName = 'Ajk.zip', DestinationPath = DownloadsFolder -> inside DownloadsFlder will be extracted all files
+def ExtractZip(Zip_FileName: str, Zip_Path: str, DestinationPath: str):
+    DestinationPath += Zip_FileName[:-4]
+    try:
+        if os.path.getsize(DownloadsFolder + Zip_FileName) == 0:
+            os.remove(DownloadsFolder + Zip_FileName)
+
+        if Zip_FileName[:-4] in os.listdir(ToolsFolder):
+            return
+    except:
+        pass
+
+    print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
     
-    with zipfile.ZipFile(Zip_FileName, "r") as zip_ref:
-        for member in tqdm.tqdm(zip_ref.infolist(), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'):
-            try:
-                zip_ref.extract(member, DestinationPath)
-            
-            except zipfile.error:
-                exit(Error = SystemExit(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!')
+    with zipfile.ZipFile(Zip_Path, "r") as zip_ref:
+        try:
+            zip_ref.extractall(DestinationPath, pwd = None, members = tqdm(zip_ref.infolist(), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'))
+
+        except zipfile.error as ex:
+            Quit(ExceptionName = ex(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!')
 
     print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
 
@@ -224,14 +214,7 @@ def ExtractZip(Zip_FileName: str, DestinationPath: str):
 
 # The user has to follow these steps in order to be able to use Adb
 def SetupDeviceForUSBCommunication():
-    """User has to MANUALLY setup his device to start USB communication"""
-
-    def DelayedPrint(string: str, sleepDelay: float) -> None:
-        for line in string.split('\n'):
-            print(line)
-            sleep(sleepDelay)
-
-    instructions = f'''
+    print(f'''
 
     1. Open your device {Colors["Green"]}settings{Colors["Reset"]} and navigate into "About my phone" option.
     2. Search for "{Colors["Red"]}Build number{Colors["Reset"]}" option inside these settings (if you cannot find it try in "{Colors["Green"]}Software Information{Colors["Reset"]}" option).
@@ -242,8 +225,7 @@ def SetupDeviceForUSBCommunication():
     7. {Colors["Green"]}Allow{Colors["Reset"]} the pop-up asking for computer permissions.
     8. Now search inside Developer Options for "{Colors["Red"]}Select USB configuration{Colors["Reset"]}".
     9. Click it and select "{Colors["Green"]}MTP File transfer{Colors["Reset"]}" protocol.'''
-
-    DelayedPrint(instructions, sleepDelay)
+    )
 
     input(f'\n\t=> Press {Colors["Green"]}Enter{Colors["Reset"]} key to continue : ')
 
@@ -269,7 +251,8 @@ def Install_AdbFastboot():
 
     ExtractZip(
         Zip_FileName = "platform-tools.zip",
-        DestinationPath = "Tools"
+        Zip_Path = DownloadsFolder + "platform-tools.zip",
+        DestinationPath = ToolsFolder
     )
     print(
         f"{Colors['Red']}Removing{Colors['Reset']} platform-tools.zip",
@@ -277,19 +260,24 @@ def Install_AdbFastboot():
     )
     os.remove('Downloads\\plattools.zip')
 
-    print(f'      [{Colors["Green"]}Done{Colors["Green"]}!]')
+    print(f'[{Colors["Green"]}Done{Colors["Green"]}!]')
 
-    AddToEnvironmentPath(f'{os.getcwd()}\\Tools')
+    AddToEnvironmentPath(ToolsFolder)
 
-AdbRetries = 0
-def Check_AdbConnection() -> None:
+def Check_AdbConnection(DriversInstaller: function, AdbRetries: int = 0) -> None:
     print(f'{Colors["Green"]}Checking{Colors["Reset"]} Adb Connection...', end = '')
     try:
         AdbDevices_output = subprocess.check_output("adb devices", stderr = subprocess.STDOUT, shell = True, encoding = 'utf-8').strip()
         if not AdbDevices_output[-6:] == 'device':
-            print(
+            if AdbRetries == 2:
+                Quit(ExceptionName = SystemExit(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} determinate Adb Connection!')
+            elif AdbRetries == 1:
+                DriversInstaller()
+
+            elif AdbRetries == 0:
+                print(
                 f'''
-        {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
+            {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
     Please, make sure "{Colors["Red"]}USB debugging{Colors["Reset"]}" option is enabled and the {Colors["Green"]}USB cable{Colors["Reset"]} is plugged in your Android and in your Computer's USB port!
     If this message comes out on your Android's screen then allow it:
         {Colors["Green_Highlight"]}Allow USB debugging? {Colors["Reset"]}
@@ -297,35 +285,31 @@ def Check_AdbConnection() -> None:
         {Colors["Green_Highlight"]}1B:28:11:B0:AC:F4:E6:1E:01:0D {Colors["Reset"]}           [For example]
         {Colors["Green"]}☑ {Colors["Reset"]}{Colors["Green_Highlight"]}Always allow from this computer {Colors["Reset"]}
                     cancel  {Colors["Green"]}OK{Colors["Reset"]}
-                ''')
-            if AdbRetries > 2:
-                exit(Error = SystemExit(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} determinate Adb Connection!')
+                    ''')
 
             input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
-            AdbRetries += 1
-            Check_AdbConnection()
-
-        AdbRetries = 0
+            Check_AdbConnection(DriversInstaller, AdbRetries + 1)
 
     except subprocess.CalledProcessError:
-        exit(
-            Error = SystemExit(), 
+        Quit(
+            ExceptionName = SystemExit(), 
             Message = f'''
     {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
     This could be because Adb&Fastboot or USB Drivers are not correctly installed...'''
         )
 
     print(f'\t[{Colors["Green"]}Connected{Colors["Reset"]}!]')
+    return True
     
     
-def Check_FastbootConnection() -> bool:
+def Check_FastbootConnection() -> bool: #TODO: Work on this function once Samsung setup is finished
     try:
         FastbootDevices_output = subprocess.check_output("fastboot devices", stderr = subprocess.STDOUT, shell = True).strip()
         return FastbootDevices_output[-6:] == b'device'
         
     except subprocess.CalledProcessError:
-        exit(
-            Error = SystemExit(),
+        Quit(
+            ExceptionName = SystemExit(),
             Message = f'''
     {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
     This could be because Adb&Fastboot or USB Drivers are not correctly installed...'''
@@ -365,7 +349,7 @@ def Download_Magisk():
 #Other functions for other devices...
 
 def Samsung_Requirements(Phone):
-    def Install_SamsungUSBDrivers(InstallationStatus: bool):
+    def Install_SamsungUSBDrivers(InstallationStatus: bool = True):
         Download(
             URLink = "https://developer.samsung.com/sdp/file/2ad30860-0932-44e3-bf63-765a5cfa1010",
             FileName = "SamsungUSB-installer.exe"
@@ -375,7 +359,7 @@ def Samsung_Requirements(Phone):
         print(
             f'Please, follow the instructions that the installer shows!'
         )
-        os.startfile(f'{os.getcwd()}\\Downloads\\SamsungUSB-installer.exe')
+        os.startfile(f'{DownloadsFolder}SamsungUSB-installer.exe')
         print('Installation Completed!')
 
         #HAVE TO WORK ON THAT
@@ -386,6 +370,13 @@ def Samsung_Requirements(Phone):
                 Try to reboot your computer or try to {Colors["Red"]}disable{Colors["Reset"]} Windows Driver Signature Verification : 
                 \t[{Colors["Blue"]}https://answers.microsoft.com/en-us/windows/forum/all/permanent-disable-driver-signature-verification/009c3498-bef8-4564-bb52-1d05812506e0{Colors["Reset"]}]'''
             )
+            
+            Quit(
+                ExceptionName = SystemExit(),
+                Message = f'{Colors["Red"]}Cannot Install Correctly{Colors["Reset"]} USB Drivers!'
+            )
+
+
 
     def Download_Firmware():
         def Download_Status(Status: str):
@@ -504,27 +495,29 @@ def Samsung_Requirements(Phone):
                             pass
 
                 #This is raised if no region has been found, because if found then the execution of this function terminates with the return statement 'return versions'
-                exit(Error = SystemExit(), Message = f'Cannot find any {Phone.Model} firmware version!') 
+                Quit(ExceptionName = SystemExit(), Message = f'Cannot find any {Phone.Model} firmware version!') 
 
-            path = os.getcwd() + "\\Downloads\\"
-            try: #This is the first check : if the region given from adb is not found then samloader raises an Exception, so we check if there is any region available for this device
-                versions = str(
-                    subprocess.check_output(
-                        f'samloader -m {Phone.Model} -r {Phone.Region} checkupdate', 
-                        stderr = subprocess.STDOUT, 
-                        shell = True), 
-                    encoding = 'utf-8')[:-2]
+            def GetFirmwareVersion() -> str:
+                try: #This is the first check : if the region given from adb is not found then samloader raises an Exception, so we check if there is any region available for this device
+                    versions = str(
+                        subprocess.check_output(
+                            f'samloader -m {Phone.Model} -r {Phone.Region} checkupdate', 
+                            stderr = subprocess.STDOUT, 
+                            shell = True), 
+                        encoding = 'utf-8')[:-2]
 
-            except Exception:
-                    print(f'{Colors["Red"]}Cannot{Colors["Reset"]} find any version on "{Colors["Green"]}{Phone.Region}{Colors["Reset"]}" Region!')
-                    if askUser(f'Do you want to download any other firmware version [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
-                        versions = Get_WorkingVersion()
-                    else:
-                        raise SystemExit()
+                except Exception:
+                        print(f'{Colors["Red"]}Cannot{Colors["Reset"]} find any version on "{Colors["Green"]}{Phone.Region}{Colors["Reset"]}" Region!')
+                        if askUser(f'Do you want to download any other firmware version [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
+                            versions = Get_WorkingVersion()
+                        else:
+                            raise SystemExit()
+                return versions
+            versions = GetFirmwareVersion() if versions not in locals() else versions
 
             if Status == 'New Download':
                 try:    #Need to check if some firmwares have .enc2 extension, because if so then samloader will raise an error during decrypting
-                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-file {path + "Firmware.zip.enc4"}')
+                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-file {DownloadsFolder + "Firmware.zip.enc4"}')
                 
                 except ConnectionAbortedError:
                     print(f'Your {Colors["Red"]}internet connection{Colors["Reset"]} has been stopped or aborted!\nPlease {Colors["Green"]}check{Colors["Reset"]} your internet connection!')
@@ -536,13 +529,13 @@ def Samsung_Requirements(Phone):
                         raise SystemExit()
                 
                 except Exception as ex:
-                    exit(Error = SystemExit(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    Quit(ExceptionName = SystemExit(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
 
             elif Status == 'Resume Download': #This is helpfull when the user gets its firmware file corrupted or stopped cause of internet or keyboard issue
                 print(f'{Colors["Green"]}Resuming{Colors["Reset"]} the download...')
                 try: #There could be an error here : if the download stops during 'download process' then it will run without issues BUT 
                     #if samloader was decrypting the file and something happens and we resume download then the file extension changes from .zip (changed from .enc4 by samloader during decrypting) then the decryption won't work...
-                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --resume --fw-ver {versions} --do-decrypt --out-file {path + "Firmware.zip.enc4"}')
+                    os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --resume --fw-ver {versions} --do-decrypt --out-file {DownloadsFolder + "Firmware.zip.enc4"}')
 
                 except ConnectionAbortedError:
                     print(f'Your internet connection has been stopped or aborted!\nPlease check your internet connection!')
@@ -554,7 +547,7 @@ def Samsung_Requirements(Phone):
                         raise SystemExit()
 
                 except Exception as ex:
-                    exit(Error = SystemExit(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    Quit(ExceptionName = SystemExit(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
         
         print(f'''
                     [Firmware Downloader] by (@Samloader)
@@ -568,12 +561,13 @@ def Samsung_Requirements(Phone):
         sleep(sleepDelay)
         
         ExtractZip(
-            Zip_FileName = os.getcwd() + '\\Downloads\\Firmware.zip',
-            DestinationPath = os.getcwd() + '\\Downloads\\Firmware'
+            Zip_FileName = 'Firmware.zip',
+            Zip_Path = DownloadsFolder + 'Firmware.zip',
+            DestinationPath = DownloadsFolder + 'Firmware\\'
         )
 
         if askUser(f'Do you want to delete Firmware.zip to free up disk space in your pc [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
-            os.remove(os.getcwd() + '\\Downloads\\Firmware.zip')
+            os.remove(f'{DownloadsFolder}Firmware.zip')
 
     def Unlock_Bootloader(): #SHOULD RETURN AN AVAILABLE USB CONNECTION
         print(f'''\n
@@ -626,9 +620,9 @@ def Samsung_Requirements(Phone):
                 input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
                 raise SystemExit()
 
-    def Install_Odin():
-        DownloadPath = os.listdir(os.getcwd() + '\\Downloads\\')
-        DownloadPathFolder = os.startfile(os.getcwd() + '\\Downloads\\')
+    def Install_Odin(): #Just ask the user to accept to download odin under his responsability and let the program do all automatic process
+        DownloadPath = os.listdir(DownloadsFolder)
+        DownloadPathFolder = os.startfile(DownloadsFolder)
         if 'Odin3_v3.14.4.exe' in DownloadPath:
             return
 
@@ -647,23 +641,22 @@ This program is not forcing your in any way to download this tool!
     Here is the link to download Odin.exe : [{Colors["Blue"]}https://odindownload.com/download/Odin3_v3.14.4.zip{Colors["Reset"]}]',
     Make sure to {Colors["Red"]}Extract{Colors["Reset"]} the zip file and move all the files extracted into the right folder :',
         [{Colors["Green"]}SS_DL.dll{Colors["Reset"]}]             ───┐
-        [{Colors["Green"]}Odin3.ini{Colors["Reset"]}]             ───┫______   [{Colors["Green"]}{os.getcwd()}\\Downloads\\{Colors["Reset"]}]
+        [{Colors["Green"]}Odin3.ini{Colors["Reset"]}]             ───┫______   [{Colors["Green"]}{DownloadsFolder}{Colors["Reset"]}]
         [{Colors["Green"]}Odin3_v3.14.4.exe{Colors["Reset"]}]     ───┫
         [{Colors["Green"]}cpprest141_2_10.dll{Colors["Reset"]}]   ───┘'''
             )
             os.startfile(DownloadPathFolder)
             input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to confirm that you mooved these files : ")
-            DownloadPath = os.listdir(os.getcwd() + '\\Downloads\\')
+            DownloadPath = os.listdir(DownloadsFolder)
             if 'Odin3_v3.14.4.exe' not in DownloadPath:
                 print(f'\t{Colors["Red"]}Cannot{Colors["Reset"]} find Odin3_v3.14.4.exe in {DownloadPathFolder}')
                 print('Make sure that you installed Odin V3.14.4 and that it is inside the given path!')
                 Install_Odin()
 
-
-    def Firmware_Flashing():
+    def Firmware_Flashing(Patch: bool):
         def BetterOutput(text: str):
             for line in text:
-                print(f'   {Colors["Green_Highlight"]}{text}{{Colors["Reset"]}}')
+                print(f'   {Colors["Green_Highlight"]}{line}{{Colors["Reset"]}}')
 
         Install_Odin()
         if askUserForChoice(f'''
@@ -674,10 +667,10 @@ This program is not forcing your in any way to download this tool!
     Choice2 = 'Automatic' #False
         ):
 
-            print(f'\t[You choosed {Colors["Green"]}Manual{Colors["Reset"]} way!]')
+            print(f'\t[You choosed {Colors["Green"]}Manual{Colors["Reset"]} Method!]')
             print(f'Now open Odin program with {Colors["Green"]}Administrator rights{Colors["Reset"]} and click {Colors["Green"]}Ok{Colors["Reset"]}!')
 
-            os.startfile(os.startfile(os.getcwd() + '\\Downloads\\'))
+            os.startfile(os.startfile(DownloadsFolder))
             input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
 
             Check_AdbConnection()
@@ -691,14 +684,20 @@ This program is not forcing your in any way to download this tool!
                 Firmware_Flashing()
 
             print(f'{Colors["Red"]}Perfect{Colors["Reset"]}!\nNow we are going to upload firmware files : ')
-            AP_File = find_files(root_dir = os.getcwd + '\\Downloads\\Firmware\\', extension = 'md5', file_name='AP_')[0]
+            global AP_File #TODO : Check if this works
+            AP_File = find_files(root_dir = os.getcwd() + '\\Downloads\\Firmware\\', extension = 'md5', file_name='AP_')[0]
+
+            if Patch:
+                AP_File = DownloadsFolder + 'Firmware\\AP_Patched.tar'
+
             print(f'''
 Now click on :                  [{Colors["Red"]}Might take 1-2 minutes{Colors["Reset"]}]
-    - {Colors["Red"]}BL{Colors["Reset"]} and choose : {find_files(root_dir = os.getcwd + '\\Downloads\\Firmware\\', extension = 'md5', file_name='BL_')[0]}
+    - {Colors["Red"]}BL{Colors["Reset"]} and choose : {find_files(root_dir = DownloadsFolder + 'Firmware//', extension = 'md5', file_name = 'BL_')[0]}
     - {Colors["Red"]}AP{Colors["Reset"]} and choose : {AP_File}
-    - {Colors["Red"]}CP{Colors["Reset"]} and choose : {find_files(root_dir = os.getcwd + '\\Downloads\\Firmware\\', extension = 'md5', file_name='CP_')[0]}
-    - {Colors["Red"]}CSC{Colors["Reset"]} and choose : {find_files(root_dir = os.getcwd + '\\Downloads\\Firmware\\', extension = 'md5', file_name='CSC_')[0]}
-''')
+    - {Colors["Red"]}CP{Colors["Reset"]} and choose : {find_files(root_dir = DownloadsFolder + 'Firmware//', extension = 'md5', file_name = 'CP_')[0]}
+    - {Colors["Red"]}CSC{Colors["Reset"]} and choose : {find_files(root_dir = DownloadsFolder + 'Firmware//', extension = 'md5', file_name = 'CSC_')[0]}
+            ''')
+
             input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
             print(f'Now click on {Colors["Green"]}Start{Colors["Reset"]} button to start flashing\nYou should now see a similar output to this : ')
             text = '''
@@ -752,27 +751,78 @@ Now click on :                  [{Colors["Red"]}Might take 1-2 minutes{Colors["R
             input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
             Check_AdbConnection()
 
-            print('Now it\'s time to patch Firmware Binaries in order to root your device!')
-            print('Installing Magisk Manager on your phone...')
-            FilePath = os.getcwd() + '\\Downloads\\Magisk.apk'
-            os.system(f'adb install {FilePath}') #There might be installation errors like 'unknown surces' not allowed
-            FilePath = os.getcwd() + '\\Downloads\\Firmware\\' + AP_File
-            print(f'Sending {AP_File} to /Storage/emulated/0/Download/', end = '')
-            os.system(f'adb push {FilePath} /Storage/emulated/0/Download/') #need to Implement progress bar
-            print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
-            print('Now search for Magisk application on your phone and open it')
-            print('Now click on first "Install" button (near to "Magisk" name) and allow magisk to access phone\'s storage')
-            print('') #Here will be all explaination of Magisk patching methods (Patch vbmeta in boot image etc)
 
 
 
 
 
         else:
-            print(f'You choosed {Colors["Red"]}Automatic{Colors["Reset"]} way!')
+            print(f'You choosed {Colors["Red"]}Automatic{Colors["Reset"]} Method!')
             Pip_Installer(Package = 'Pywinauto')
             sleep(sleepDelay)
             import pywinauto
+
+    
+    def Firmware_Unpacking():
+        def lz4_Extractor(File: str):
+            #Once the extraction is completed then the file will be in the same directory where it was
+            Download(
+                URLink = 'https://github.com/lz4/lz4/releases/download/v1.9.4/lz4_win64_v1_9_4.zip', 
+                FileName = 'lz4.zip'
+            )
+            ExtractZip(
+                Zip_FileName = 'lz4.zip',
+                Zip_Path = DownloadsFolder + 'lz4.zip',
+                DestinationPath = ToolsFolder
+            )
+            os.system(f'{ToolsFolder}lz4\\lz4.exe {File}')
+
+        
+
+        Extract_tar(
+            file_path = AP_File, 
+            extract_path = DownloadsFolder + 'Firmware\\Extracted_AP'
+        )
+
+        Boot_File: str = find_files(
+            root_dir = DownloadsFolder + 'Firmware\\Extracted_AP\\',
+            extension = 'lz4',
+            NoExtension = True, 
+            file_name = 'boot'
+        )[0]
+
+        Recovery_File: str = find_files(
+            root_dir = DownloadsFolder + f'Firmware\\Extracted_AP\\',
+            extension = 'lz4',
+            NoExtension = True, 
+            file_name = 'recovery'
+        )[0]
+
+        if Boot_File.endswith('.lz4'):
+            lz4_Extractor(File = Boot_File)
+            Boot_File = Boot_File[:-4] #boot.img.lz4 -> boot.img
+        
+        if Recovery_File.endswith('.lz4'):
+            lz4_Extractor(File = Recovery_File)
+            Recovery_File = Recovery_File[:-4]
+
+
+        
+
+
+    def Patch_AP_File(): #TODO : Create an autopatching script by using magisk manager native binaries :    
+        print('Now it\'s time to patch Firmware Binaries in order to root your device!')
+        print('Installing Magisk Manager on your phone...')
+        FilePath = os.getcwd() + '\\Downloads\\Magisk.apk'
+        os.system(f'adb install {FilePath}') #There might be installation errors like 'unknown surces' not allowed
+        FilePath = os.getcwd() + '\\Downloads\\Firmware\\' + AP_File
+        print(f'Sending {AP_File} to /Storage/emulated/0/Download/', end = '')
+        os.system(f'adb push {FilePath} /Storage/emulated/0/Download/') #need to Implement progress bar
+        print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
+        print('Now search for Magisk application on your phone and open it')
+        print('Now click on first "Install" button (near to "Magisk" name) and allow magisk to access phone\'s storage')
+        print('') #Here will be all explaination of Magisk patching methods (Patch vbmeta in boot image etc)
+        
 
     print(
         f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
