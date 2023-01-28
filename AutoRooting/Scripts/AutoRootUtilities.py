@@ -23,9 +23,18 @@ Colors: dict[str, str] = {
 OSDriveLetter = str(subprocess.check_output(f'echo %USERPROFILE%', stderr = subprocess.STDOUT, shell = True))[2:4] + '\\'
 DownloadsFolder = os.getcwd() + '\\Downloads\\'
 ToolsFolder = os.getcwd() + '\\Tools\\'
+class function: #Used just by Type Hinting for understanding variable type
+    pass
 
 
-os.mkdir("Tools", "Downloads", exist_ok = True)
+try:
+    os.mkdir("Tools")
+except FileExistsError:
+    pass
+try:
+    os.mkdir("Downloads")
+except FileExistsError:
+    pass
 
 
 def Quit(ExceptionName: Exception, Message: str) -> Exception:
@@ -49,7 +58,7 @@ def Pip_Installer(Package: str, Package_Name: str = '') -> None:
         Package_Name = Package
     try:
         #sys.executable returns python version
-        subprocess.run([sys.executable, '-m', 'pip', 'install', Package], check=True)
+        subprocess.run([sys.executable, '-m', 'pip', 'install', Package, '-q'], check=True)
     except subprocess.CalledProcessError as ex:
         Quit(ExceptionName = ex(), Message = f'An {Colors["Red"]}Unknown Error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
 
@@ -68,7 +77,7 @@ def Extract_tar(file_path: str, extract_path: str) -> None:
 
 def Create_tar(file_path: str, directory: str) -> None:
     print(f"{Colors['Green']}Extracting{Colors['Reset']} {file_path} {Colors['Green']}to{Colors['Reset']} {directory}")
-    with tarfile.open(file_path, "w") as tar:
+    with tarfile.open(file_path, "w:gz") as tar:
         for file in tqdm(os.listdir(directory), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'):
             tar.add(os.path.join(directory, file), arcname = file)
 
@@ -133,9 +142,12 @@ def isConnected() -> bool:
 def AddToEnvironmentPath(Directory: str) -> None:
     path = os.environ["PATH"]
     if Directory not in path.split(os.pathsep):
-        print(f'{Colors["Green"]}Adding{Colors["Reset"]} {Directory} to the {Colors["Green"]}User Environment{Colors["Reset"]} Path Temporally...', end = '')
+        print(f'{Colors["Green"]}Adding{Colors["Reset"]} {Directory} to the {Colors["Green"]}User Environment{Colors["Reset"]} Path Temporally...'.ljust(150), end = '')
         os.environ["PATH"] = f"{Directory}{os.pathsep}{path}"
         print(f'\t\t[{Colors["Green"]}Done!{Colors["Reset"]}]')
+
+AddToEnvironmentPath(Directory = DownloadsFolder)
+AddToEnvironmentPath(Directory = ToolsFolder)
 
 def DriverInstaller():
     """Installs a requested driver"""
@@ -148,7 +160,7 @@ class DownloadFailedError(Exception):
 
 def Download(URLink: str, FileName: str, retries: int = 2) -> None:
     try:
-        if os.path.getsize(DownloadsFolder + FileName) == 0:
+        if os.path.getsize(DownloadsFolder + FileName) <= 1_000_000:
             os.remove(DownloadsFolder + FileName)
 
         if FileName in os.listdir(DownloadsFolder):
@@ -187,17 +199,21 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None:
         Quit(ExceptionName = DownloadFailedError(), Message = f"{FileName} failed to be downloaded for some reason.")
 
 
-# Gets zip file name and extracts its contents inside a path : Zip_FileName = 'Ajk.zip', DestinationPath = DownloadsFolder -> inside DownloadsFlder will be extracted all files
-def ExtractZip(Zip_FileName: str, Zip_Path: str, DestinationPath: str):
-    DestinationPath += Zip_FileName[:-4]
-    try:
-        if os.path.getsize(DownloadsFolder + Zip_FileName) == 0:
-            os.remove(DownloadsFolder + Zip_FileName)
+# Gets zip file name and extracts its contents inside a path : Zip_FileName = 'Ajk.zip', DestinationPath = ToolsFolder -> inside ToolsFolder will be extracted all files
+def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool):
+    
+    if not HasFolderInside:
+        DestinationPath += Zip_FileName[:-4]
 
-        if Zip_FileName[:-4] in os.listdir(ToolsFolder):
-            return
+    Zip_Path = DownloadsFolder + Zip_FileName
+    try:
+        if os.path.getsize(ToolsFolder + Zip_FileName[:-4]) <= 1_000_000: #Checks if folder's size is 0Kb, if so remove it and re-extract the zip file
+            os.remove(ToolsFolder + Zip_FileName[:-4])
     except:
         pass
+    
+    if Zip_FileName[:-4] in os.listdir(ToolsFolder):
+        return
 
     print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
     
@@ -233,8 +249,10 @@ def SetupDeviceForUSBCommunication():
     print(
         f'''
         {Colors["Red"]}IF{Colors["Reset"]} YOU CANNOT FIND THAT OPTION THEN LOOK AT THESE DOCUMENTATION :
-        \t1. "{Colors["Blue"]}https://krispitech.com/fix-the-missing-oem-unlock-in-developer-options/{Colors["Reset"]}"
-        \t2. "{Colors["Blue"]}https://www.quora.com/Why-do-some-mobile-companies-refuse-to-unlock-bootloaders-like-Huawei-and-Realme{Colors["Reset"]}"
+            1. Missing "OEM Unlocking" options : 
+                           "{Colors["Blue"]}https://krispitech.com/fix-the-missing-oem-unlock-in-developer-options/{Colors["Reset"]}"
+            2. "OEM Unlocking" shows "Connect to the internet or contact your carrier" : 
+                           "{Colors["Blue"]}https://www.quora.com/Why-do-some-mobile-companies-refuse-to-unlock-bootloaders-like-Huawei-and-Realme{Colors["Reset"]}"
         '''
         )
 
@@ -251,8 +269,8 @@ def Install_AdbFastboot():
 
     ExtractZip(
         Zip_FileName = "platform-tools.zip",
-        Zip_Path = DownloadsFolder + "platform-tools.zip",
-        DestinationPath = ToolsFolder
+        DestinationPath = ToolsFolder,
+        HasFolderInside = True
     )
     print(
         f"{Colors['Red']}Removing{Colors['Reset']} platform-tools.zip",
@@ -261,8 +279,6 @@ def Install_AdbFastboot():
     os.remove('Downloads\\plattools.zip')
 
     print(f'[{Colors["Green"]}Done{Colors["Green"]}!]')
-
-    AddToEnvironmentPath(ToolsFolder)
 
 def Check_AdbConnection(DriversInstaller: function, AdbRetries: int = 0) -> None:
     print(f'{Colors["Green"]}Checking{Colors["Reset"]} Adb Connection...', end = '')
@@ -299,7 +315,6 @@ def Check_AdbConnection(DriversInstaller: function, AdbRetries: int = 0) -> None
         )
 
     print(f'\t[{Colors["Green"]}Connected{Colors["Reset"]}!]')
-    return True
     
     
 def Check_FastbootConnection() -> bool: #TODO: Work on this function once Samsung setup is finished
@@ -324,6 +339,7 @@ def Install_MTKDriver():    #Chinese phones
 
 def Download_Magisk():
 
+    #it's better to not check for updates because magisk binaries will be compiled in magisk v25.2
     try: #Just check for latest versions of Magisk  --SOME DEVICES NEED CUSTOM MAGISK VERSION!
         response = requests.get('https://api.github.com/repos/topjohnwu/Magisk/releases?per_page=1').json()[0]
         html_url = response["html_url"]
@@ -349,7 +365,7 @@ def Download_Magisk():
 #Other functions for other devices...
 
 def Samsung_Requirements(Phone):
-    def Install_SamsungUSBDrivers(InstallationStatus: bool = True):
+    def Install_SamsungUSBDrivers(InstallationStatus: bool = True) -> None:
         Download(
             URLink = "https://developer.samsung.com/sdp/file/2ad30860-0932-44e3-bf63-765a5cfa1010",
             FileName = "SamsungUSB-installer.exe"
@@ -376,9 +392,102 @@ def Samsung_Requirements(Phone):
                 Message = f'{Colors["Red"]}Cannot Install Correctly{Colors["Reset"]} USB Drivers!'
             )
 
+    def Unlock_Bootloader() -> None: #SHOULD RETURN AN AVAILABLE USB CONNECTION
+        print(f'''\n
+        [{Colors["Red"]}Bootloader unlock{Colors["Reset"]} Step]\t[{Colors["Green"]}Advance Download Mode{Colors["Reset"]}]
+        \t\t[{Colors["Red"]}All phone data will be erased{Colors["Reset"]}!]
+        1. {Colors["Red"]}Unplug{Colors["Reset"]} phone cable from pc and {Colors["Red"]}power off{Colors["Reset"]} your phone.
+        2. Press and hold {Colors["Red"]}volume up{Colors["Reset"]} and {Colors["Red"]}volume down{Colors["Reset"]} buttons {Colors["Green"]}and{Colors["Reset"]} (while holding) connect the USB cable to the computer.
+        \t[{Colors["Red"]}IF{Colors["Reset"]} your phone has {Colors["Red"]}BIXBI button{Colors["Reset"]} then press and hold it too!]
+        3. You can release buttons once a {Colors["Blue"]}blue screen{Colors["Reset"]} appears.
+        
+        You should now see a screen like this :
+            {Colors["Green_Highlight"]}A custom OS can cause critical problems{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}in phone and installed applications.{Colors["Reset"]} 
+        
+            {Colors["Green_Highlight"]}if you want to download a custom OS,{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}press the volume up key.{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}Otherwise, press the volume down key to cancel.{Colors["Reset"]} 
 
+          ---------------------------------------------------
 
-    def Download_Firmware():
+            {Colors["Green_Highlight"]}Volume up: Continue{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}Volume up long press: Device unlock mode{Colors["Reset"]} 
+            {Colors["Green_Highlight"]}Volume down: Cancel (restart phone){Colors["Reset"]} 
+
+        4. Press and hold volume up button until see {Colors["Red"]}bootloader unlock menu{Colors["Reset"]}.
+        5. Press again the volume up button to {Colors["Green"]}confirm{Colors["Reset"]} the bootloader unlock process.
+
+        The phone will now reboot.
+        ''')
+        
+        input(f'Press {Colors["Green"]}ENTER{Colors["Reset"]} {Colors["Red"]}if{Colors["Reset"]} the phone has been rebooted : ')
+
+        print(f'''
+        Your phone has now been rebooted into {Colors["Blue"]}Welcome Screen{Colors["Reset"]}.
+        Configure all you need to finish the Welcome Screen's setup.     [You can also skip this configuration, just click on "Next"]
+        Open your system settings and {Colors["Red"]}configure{Colors["Reset"]} WI-FI network.      [{Colors["Red"]}Important{Colors["Reset"]}!]
+
+        Once done enable again developer options.
+        ''')
+        if askUser('Need help on how to enable Developer options?'):
+            SetupDeviceForUSBCommunication()
+        
+        if askUser(f'Is "OEM Unlocking" option "{Colors["Grey"]}greyed out{Colors["Reset"]}"?'):
+                print(f'[{Colors["Red"]}Great{Colors["Reset"]}!]\nYour phone\'s bootloader has been {Colors["Green"]}unlocked correctly{Colors["Reset"]}!') 
+        else:
+            print("This means your phone's bootloader hasn't been unlocked correctly!")
+            if askUser('Wanna continue anyway?'):
+                print(f"[{Colors['Green']}Ok!{Colors['Reset']}]")       #If unlocking bootloader instructions were followed rightly (phone formatted) some devices (like huawei) might not have "OEM Unlocking" greyed out...
+            else:
+                input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
+                raise SystemExit()
+
+    def Install_Heimdall() -> None: #The phone has to be in download mode
+        
+            
+        Download(
+            URLink = "https://download1076.mediafire.com/ha3x6kwdi36g/zyge4l2ifk9nxk6/Heimdall.zip",
+            FileName = "Heimdall.zip"
+        )
+        
+        ExtractZip(
+            Zip_Path = DownloadsFolder + 'Heimdall.zip',
+            DestinationPath = ToolsFolder,
+            HasFolderInside = False
+        )
+
+        os.rename(ToolsFolder + 'Heimdall\\zadig-2.4.exe', ToolsFolder + 'Heimdall\\zadig.exe')
+
+        #This might be a 'USBDriver installation' function
+        #TODO : In order to stop doing things multiple times (like drivers installation), create a config file where to store informations about what this program did.
+        print(f'{Colors["Green"]}In order to{Colors["Reset"]} setup USB communication, you need to install Samsung drivers {Colors["Green"]}manually{Colors["Reset"]}...')
+        print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} Samsung to {Colors["Blue"]}Download Mode{Colors["Reset"]}...')
+        os.system('adb reboot download')
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if the device is in Download Mode : ")
+        print(f'{Colors["Green"]}zadig.exe{Colors["Reset"]} (a Driver installer application) will be executed!')    #TODO : check if zadig reboots pc once driver is installed
+        os.startfile(ToolsFolder + 'Heimdall\\zadig.exe')
+
+        print(f'''
+Now follow these {Colors["Red"]}instructions{Colors["Reset"]} : 
+    1. From the menu chose Options -> {Colors["Green"]}List All Devices{Colors["Reset"]}.
+
+    2. From the USB Device list chose "{Colors["Green"]}Samsung USB Composite Device{Colors["Reset"]}" or "{Colors["Green"]}Gadget Serial{Colors["Reset"]}".
+
+    3. Press "{Colors["Green"]}Install Driver{Colors["Reset"]}", click "{Colors["Green"]}Yes{Colors["Reset"]}" to the prompt and if you receive
+    a message about being unable to verify the publisher of the driver
+    click "Install this driver software anyway".
+
+        {Colors["Red"]}NOTE{Colors["Reset"]}:    [IF YOU DON'T SEE YOUR DEVICE IN 'Device list' then your device might be unsupported!]
+
+    4. Done!
+
+    5. Close zadig application.
+        ''')
+
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
+
+    def Download_Firmware() -> None: #Returns "Firmware" folder inside Downloads folder. Inside it there are all .md5 files
         def Download_Status(Status: str):
             #This dict contains all supported firmware regions, there could be a better way to implement this...
             Samsung_Regions: dict(str, list[str]) = {
@@ -491,7 +600,7 @@ def Samsung_Requirements(Phone):
                             Phone.Region = region #Important : change user's phone's region information because this firmware will be flashed on the device...
                             return versions
                         except:
-                            print(f'Trying with "{Colors["Grey"]}{region}{Colors["Reset"]}"... \t[{Colors["Red"]}Not worked{Colors["Reset"]}!]')
+                            print(f'Trying with "{Colors["Grey"]}{region}{Colors["Reset"]}"...'.ljust(150), f'[{Colors["Red"]}Not worked{Colors["Reset"]}!]')
                             pass
 
                 #This is raised if no region has been found, because if found then the execution of this function terminates with the return statement 'return versions'
@@ -513,10 +622,10 @@ def Samsung_Requirements(Phone):
                         else:
                             raise SystemExit()
                 return versions
-            versions = GetFirmwareVersion() if versions not in locals() else versions
+            versions = GetFirmwareVersion() if versions not in locals() else versions #This is because Dowload_Status() can be called more times
 
             if Status == 'New Download':
-                try:    #Need to check if some firmwares have .enc2 extension, because if so then samloader will raise an error during decrypting
+                try:    #Need to check if some firmwares have .enc2 extension, because if so then samloader will raise an error during decrypting       #Maybe samloader manages it automatically, so no need
                     os.system(f'samloader --dev-model {Phone.Model} --dev-region {Phone.Region} download --fw-ver {versions} --do-decrypt --out-file {DownloadsFolder + "Firmware.zip.enc4"}')
                 
                 except ConnectionAbortedError:
@@ -529,7 +638,7 @@ def Samsung_Requirements(Phone):
                         raise SystemExit()
                 
                 except Exception as ex:
-                    Quit(ExceptionName = SystemExit(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    Quit(ExceptionName = ex(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
 
             elif Status == 'Resume Download': #This is helpfull when the user gets its firmware file corrupted or stopped cause of internet or keyboard issue
                 print(f'{Colors["Green"]}Resuming{Colors["Reset"]} the download...')
@@ -547,7 +656,7 @@ def Samsung_Requirements(Phone):
                         raise SystemExit()
 
                 except Exception as ex:
-                    Quit(ExceptionName = SystemExit(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
+                    Quit(ExceptionName = ex(), Message = f'Cannot start or continue {Phone.Model} firmware\'s download for an unknown error!')
         
         print(f'''
                     [Firmware Downloader] by (@Samloader)
@@ -558,277 +667,248 @@ def Samsung_Requirements(Phone):
         
         Download_Status('New Download')
         print(f'Firmware has been downloaded correctly!')
-        sleep(sleepDelay)
+        sleep(1)
         
         ExtractZip(
             Zip_FileName = 'Firmware.zip',
-            Zip_Path = DownloadsFolder + 'Firmware.zip',
-            DestinationPath = DownloadsFolder + 'Firmware\\'
+            DestinationPath = DownloadsFolder,
+            HasFolderInside = False
         )
 
         if askUser(f'Do you want to delete Firmware.zip to free up disk space in your pc [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
             os.remove(f'{DownloadsFolder}Firmware.zip')
 
-    def Unlock_Bootloader(): #SHOULD RETURN AN AVAILABLE USB CONNECTION
-        print(f'''\n
-        [{Colors["Red"]}Bootloader unlock{Colors["Reset"]} Step]\t[{Colors["Green"]}Advance Download Mode{Colors["Reset"]}]
-        \t\t[{Colors["Red"]}All phone data will be erased{Colors["Reset"]}!]
-        1. {Colors["Red"]}Unplug{Colors["Reset"]} phone cable from pc and {Colors["Red"]}power off{Colors["Reset"]} your phone.
-        2. Press and hold {Colors["Red"]}volume up{Colors["Reset"]} and {Colors["Red"]}volume down{Colors["Reset"]} buttons {Colors["Green"]}and{Colors["Reset"]} (while holding) connect the USB cable to the computer.
-        \t[{Colors["Red"]}IF{Colors["Reset"]} your phone has {Colors["Red"]}BIXBI button{Colors["Reset"]} then press and hold it too!]
-        3. You can release buttons once a {Colors["Blue"]}blue screen{Colors["Reset"]} appears.
-        
-        You should now see a screen like this :
-            {Colors["Green_Highlight"]}A custom OS can cause critical problems{Colors["Reset"]} 
-            {Colors["Green_Highlight"]}in phone and installed applications.{Colors["Reset"]} 
-        
-            {Colors["Green_Highlight"]}if you want to download a custom OS,{Colors["Reset"]} 
-            {Colors["Green_Highlight"]}press the volume up key.{Colors["Reset"]} 
-            {Colors["Green_Highlight"]}Otherwise, press the volume down key to cancel.{Colors["Reset"]} 
-
-            \b\b---------------------------------------------------
-
-            {Colors["Green_Highlight"]}Volume up: Continue{Colors["Reset"]} 
-            {Colors["Green_Highlight"]}Volume up long press: Device unlock mode{Colors["Reset"]} 
-            {Colors["Green_Highlight"]}Volume down: Cancel (restart phone){Colors["Reset"]} 
-
-        4. Press and hold volume up button until see {Colors["Red"]}bootloader unlock menu{Colors["Reset"]}.
-        5. Press again the volume up button to {Colors["Green"]}confirm{Colors["Reset"]} the bootloader unlock process.
-
-        The phone will now reboot.
-        ''')
-        
-        input(f'Press {Colors["Green"]}ENTER{Colors["Reset"]} {Colors["Red"]}if{Colors["Reset"]} the phone has been rebooted : ')
-
-        print(f'''
-        Your phone has now been rebooted into {Colors["Blue"]}Welcome Screen{Colors["Reset"]}.
-        Configure all you need to finish the Welcome Screen's setup.     [You can also skip this configuration, just click on "Next"]
-        Open your system settings and {Colors["Red"]}configure{Colors["Reset"]} WI-FI network.      [{Colors["Red"]}Important{Colors["Reset"]}!]
-
-        Once done enable again developer options.
-        ''')
-        if askUser('Need help on how to enable Developer options?'):
-            SetupDeviceForUSBCommunication()
-        
-        if askUser('Is "OEM Unlocking" option "greyed out"?'):
-                print(f'[{Colors["Red"]}Great{Colors["Reset"]}!]\nYour phone\'s bootloader has been {Colors["Green"]}unlocked correctly{Colors["Reset"]}!') 
-        else:
-            print("This means your phone's bootloader hasn't been unlocked correctly!")
-            if askUser('Wanna continue anyway?'):
-                print(f"[{Colors['Green']}Ok!{Colors['Reset']}]")
-            else:
-                input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to exit : ")
-                raise SystemExit()
-
-    def Install_Odin(): #Just ask the user to accept to download odin under his responsability and let the program do all automatic process
-        DownloadPath = os.listdir(DownloadsFolder)
-        DownloadPathFolder = os.startfile(DownloadsFolder)
-        if 'Odin3_v3.14.4.exe' in DownloadPath:
-            return
-
-        if askUserForChoice(f'''
-Flashing {Colors["Green"]}latest{Colors["Reset"]} downloaded firmware is {Colors["Green"]}ESSENTIAL to avoid{Colors["Reset"]} phone soft-brick!
-{Colors["Green"]}AutoRoot{Colors["Reset"]} program is {Colors["Green"]}not legally allowed{Colors["Reset"]} to distribuite Odin.exe tool (Firmware Flasher)!
-You will have to download the software manually and voluntarily accept AutoRoot's use of Odin.exe!
-This program is not forcing your in any way to download this tool!
-
-\t{Colors["Red"]}By typing "YES I CONFIRM" you accept what said above, else type "NO I DON'T CONFIRM"{Colors["Reset"]} : ''',
-            Choice1 = 'YES I CONFIRM',
-            Choice2 = 'NO I DON\'T CONFIRM'
-):
-            print(
-                f'''
-    Here is the link to download Odin.exe : [{Colors["Blue"]}https://odindownload.com/download/Odin3_v3.14.4.zip{Colors["Reset"]}]',
-    Make sure to {Colors["Red"]}Extract{Colors["Reset"]} the zip file and move all the files extracted into the right folder :',
-        [{Colors["Green"]}SS_DL.dll{Colors["Reset"]}]             ───┐
-        [{Colors["Green"]}Odin3.ini{Colors["Reset"]}]             ───┫______   [{Colors["Green"]}{DownloadsFolder}{Colors["Reset"]}]
-        [{Colors["Green"]}Odin3_v3.14.4.exe{Colors["Reset"]}]     ───┫
-        [{Colors["Green"]}cpprest141_2_10.dll{Colors["Reset"]}]   ───┘'''
-            )
-            os.startfile(DownloadPathFolder)
-            input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to confirm that you mooved these files : ")
-            DownloadPath = os.listdir(DownloadsFolder)
-            if 'Odin3_v3.14.4.exe' not in DownloadPath:
-                print(f'\t{Colors["Red"]}Cannot{Colors["Reset"]} find Odin3_v3.14.4.exe in {DownloadPathFolder}')
-                print('Make sure that you installed Odin V3.14.4 and that it is inside the given path!')
-                Install_Odin()
-
-    def Firmware_Flashing(Patch: bool):
-        def BetterOutput(text: str):
-            for line in text:
-                print(f'   {Colors["Green_Highlight"]}{line}{{Colors["Reset"]}}')
-
-        Install_Odin()
-        if askUserForChoice(f'''
-    Do you want to {Colors["Red"]}flash{Colors["Reset"]} the firmware {Colors["Red"]}manually{Colors["Reset"]} with a detailed guide on how to do it [{Colors["Green"]}Recommended{Colors["Reset"]}] 
-                                            OR
-    {Colors["Red"]}Let{Colors["Reset"]} AutoRoot.py flash it automatically [{Colors["Red"]}Might be instable{Colors["Reset"]}] ?''',
-    Choice1 = 'Manual', #True
-    Choice2 = 'Automatic' #False
-        ):
-
-            print(f'\t[You choosed {Colors["Green"]}Manual{Colors["Reset"]} Method!]')
-            print(f'Now open Odin program with {Colors["Green"]}Administrator rights{Colors["Reset"]} and click {Colors["Green"]}Ok{Colors["Reset"]}!')
-
-            os.startfile(os.startfile(DownloadsFolder))
-            input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
-
-            Check_AdbConnection()
-            print('Rebooting Samsung to Download Mode...')
-            os.system('adb reboot download')
-            sleep(5)
-
-            if not askUser(f'Now you shold be able to see, for example, [{Colors["Red"]}<ID:0/003> Added!!{Colors["Reset"]}], right?'):
-                print('If the phone is in download mode and is connected to the computer via USB cable then the only problem could be USB Drivers...')
-                Install_SamsungUSBDrivers()
-                Firmware_Flashing()
-
-            print(f'{Colors["Red"]}Perfect{Colors["Reset"]}!\nNow we are going to upload firmware files : ')
-            global AP_File #TODO : Check if this works
-            AP_File = find_files(root_dir = os.getcwd() + '\\Downloads\\Firmware\\', extension = 'md5', file_name='AP_')[0]
-
-            if Patch:
-                AP_File = DownloadsFolder + 'Firmware\\AP_Patched.tar'
-
-            print(f'''
-Now click on :                  [{Colors["Red"]}Might take 1-2 minutes{Colors["Reset"]}]
-    - {Colors["Red"]}BL{Colors["Reset"]} and choose : {find_files(root_dir = DownloadsFolder + 'Firmware//', extension = 'md5', file_name = 'BL_')[0]}
-    - {Colors["Red"]}AP{Colors["Reset"]} and choose : {AP_File}
-    - {Colors["Red"]}CP{Colors["Reset"]} and choose : {find_files(root_dir = DownloadsFolder + 'Firmware//', extension = 'md5', file_name = 'CP_')[0]}
-    - {Colors["Red"]}CSC{Colors["Reset"]} and choose : {find_files(root_dir = DownloadsFolder + 'Firmware//', extension = 'md5', file_name = 'CSC_')[0]}
-            ''')
-
-            input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
-            print(f'Now click on {Colors["Green"]}Start{Colors["Reset"]} button to start flashing\nYou should now see a similar output to this : ')
-            text = '''
-    <ID:0/003>Added!!
-    <OSM>Enter CS for MD5..
-    <OSM>CheckMD5.. Do not unplug the cable..
-    <OSM>Please wait..
-    <OSM>Checking MD5 finised Sucessfully..
-    <OSM>Leave CS..
-    <ID:0/003>Odin engine v(ID:3.14.4)
-    <ID:0/003>File analysis..
-    <ID:0/003>Total Binary size: 6593M
-    <ID:0/003>SetupConnection..
-    <ID:0/003>Initialization..
-    <ID:0/003>Set PIT file..
-    <ID:0/003>DO NOT TURN OFF TARGET!!!
-    <ID:0/003>Get PIT for mapping..
-    <ID:0/003>Firmware update start..
-    <ID:0/003>NAND Write Start!!
-    <ID:0/003>SingleDownload.
-    <ID:0/003>sboot.bin
-    <ID:0/003>param.bin
-    <ID:0/003>up_param.bin
-    <ID:0/003>cm.bin
-    <ID:0/003>keystorage.bin
-    <ID:0/003>boot.img
-    <ID:0/003>recovery.img
-    <ID:0/003>system.img
-    <ID:0/003>vendor.img
-    <ID:0/003>dt.img
-    <ID:0/003>dtbo.img
-    <ID:0/003>vbmeta.img
-    <ID:0/003>modem.bin
-    <ID:0/003>modem_debug.bin
-    <ID:0/003>product.img
-    <ID:0/003>RQT_CLSE!!
-    <ID:0/003>RES OK!!
-    <ID:0/003>Remomved!!
-    <ID:0/003>Remain Port .... 0
-    <OSM> All Threads completed. (succeed 1 / failed 0)
-'''
-            BetterOutput(text)
-            input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} if the firmware has been flashed successfully [<OSM> All Threads completed. (succeed 1 / failed 0)] : ")
-            print(f'\nNow {Colors["Red"]}Press and Hold{Colors["Reset"]} down volume down and power keys untill phone reboots')
-            sleep(6)
-            print(f'Now you device should be updated to {Phone.AndoidVersion} Android version!\nNow you have to configure Welcome screen, setup WI-FI and enable again developer options...')
-            
-            input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to show how to enable Developer options and USB Communication : ")
-            SetupDeviceForUSBCommunication()
-            
-            input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to continue : ")
-            Check_AdbConnection()
-
-
-
-
-
-
-        else:
-            print(f'You choosed {Colors["Red"]}Automatic{Colors["Reset"]} Method!')
-            Pip_Installer(Package = 'Pywinauto')
-            sleep(sleepDelay)
-            import pywinauto
-
-    
-    def Firmware_Unpacking():
-        def lz4_Extractor(File: str):
+    def Firmware_Unpacking() -> None: #Returns a created folder "Extracted_Files" -> Downloads/Firmware/Extracted_Files
+        print(f'\n{Colors["Green"]}Unpacking{Colors["Reset"]} Firmware files...')
+        def lz4_Extractor(Files_Path: str) -> None:
             #Once the extraction is completed then the file will be in the same directory where it was
-            Download(
-                URLink = 'https://github.com/lz4/lz4/releases/download/v1.9.4/lz4_win64_v1_9_4.zip', 
-                FileName = 'lz4.zip'
-            )
-            ExtractZip(
-                Zip_FileName = 'lz4.zip',
-                Zip_Path = DownloadsFolder + 'lz4.zip',
-                DestinationPath = ToolsFolder
-            )
-            os.system(f'{ToolsFolder}lz4\\lz4.exe {File}')
+            for File in os.listdir(Files_Path):
+                if File.endswith('.lz4'):
+                    print(f'{Colors["Green"]}Extracting{Colors["Reset"]} {File}')
+                    os.system(f'{ToolsFolder}lz4\\lz4.exe f"{Files_Path}\\{File}" -f')
+                    os.remove(Files_Path + '\\' + File)
 
         
-
-        Extract_tar(
-            file_path = AP_File, 
-            extract_path = DownloadsFolder + 'Firmware\\Extracted_AP'
+        Download(
+            URLink = 'https://github.com/lz4/lz4/releases/download/v1.9.4/lz4_win64_v1_9_4.zip', 
+            FileName = 'lz4.zip'
+        )
+        ExtractZip(
+            Zip_FileName = 'lz4.zip',
+            DestinationPath = ToolsFolder,
+            HasFolderInside = True
         )
 
-        Boot_File: str = find_files(
-            root_dir = DownloadsFolder + 'Firmware\\Extracted_AP\\',
-            extension = 'lz4',
-            NoExtension = True, 
-            file_name = 'boot'
-        )[0]
+        for md5 in os.listdir(DownloadsFolder + 'Firmware\\'):
+            Extract_tar(
+                file_path = DownloadsFolder + 'Firmware\\' + md5, 
+                extract_path = DownloadsFolder + f'Firmware\\Extracted_Files\\'
+            )
 
-        Recovery_File: str = find_files(
-            root_dir = DownloadsFolder + f'Firmware\\Extracted_AP\\',
-            extension = 'lz4',
-            NoExtension = True, 
-            file_name = 'recovery'
-        )[0]
+        lz4_Extractor(Files_Path = DownloadsFolder + 'Firmware\\Extracted_Files\\')
 
-        if Boot_File.endswith('.lz4'):
-            lz4_Extractor(File = Boot_File)
-            Boot_File = Boot_File[:-4] #boot.img.lz4 -> boot.img
+    def Firmware_Flashing() -> None: #Need to fix heimdall : Need to know how it actually works : --resume and when --no-reboot...
+        def CreateFlashingCommand(ExtractedFirmFiles_Path: str) -> str:
+            #How's the pit file : 
+            # --- Entry #0 ---
+            # Binary Type: 0 (AP)
+            # Device Type: 8 (Unknown)
+            # Identifier: 80
+            # Attributes: 2 (STL Read-Only)
+            # Update Attributes: 1 (FOTA)
+            # Partition Block Size/Offset: 0
+            # Partition Block Count: 1204
+            # File Size (Obsolete): 0
+            # Partition Name: BOOTLOADER
+            # Flash Filename: sboot.bin
+
+            while True:
+                Connection = subprocess.check_output('heimdall detect', stderr = True, shell = True)
+                if Connection:
+                    break
+                print(f'{Colors["Red"]}Cannot{Colors["Reset"]} detect device...\nAre you sure that your device is in download mode or is connected to computer?')
+                input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
+
+            class Partition:
+                def __init__(self, PartitionName, FileName) -> None:
+                    self.PartitionName = PartitionName
+                    self.FileName = FileName
+
+            PitOutput = subprocess.check_output('heimdall print-pit --no-reboot', cwd = ToolsFolder + 'Heimdall\\', stderr = subprocess.STDOUT, shell = True) #encoding might be needed
+            lines = [[line.rstrip() for line in PitOutput]]
+
+            Partitions = list()
+
+            for line in lines:
+                if 'Partition Name' in PreviousLine:
+                    PartitionName = line.split(': ')[1] #Partition Name: BOOTLOADER
+
+                if 'Flash Filename' in line: #Flash Flename: sboot.bin
+                    Partitions.append(Partition(PartitionName, FileName = line.split(': ')[1]))
+                PreviousLine = line
+
+            FilesInDirectory = [f for f in os.listdir(ExtractedFirmFiles_Path) if os.path.isfile(os.join(ExtractedFirmFiles_Path, f))]
+
+            for Part in Partitions:
+                if Part.FileName not in FilesInDirectory: #Checking whatever device's partition's file exists
+                    Partitions.remove(Part)
+
+            Command = 'heimdall flash --resume '
+            for Part in Partitions:
+                Command += f' --{Part.PartitionName} {Part.FileName}'
+
+            return Command
+
+
+        Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+        os.system('adb reboot download')
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if your phone is in {Colors['Blue']}Download Mode{Colors['Reset']} : ")
+        #Need to use heimdall detect        #TODO: Check heimdall commands' output
+        Heimdall_Command = CreateFlashingCommand()
+        print(f'\n\n{Colors["Green"]}Starting{Colors["Reset"]} Flashing process...')
+        os.system(Heimdall_Command)
+        #Check if need to reboot or not!
+        print(f'\n\n[{Colors["Green"]}Finished Flashing{Colors["Reset"]}!]')
+
+    def Patch_AP_File() -> None: #Returns a folder in Firmware's folder called 'PatchedFiles'
+        #Possible CPU Architectures : x86_64, x86, arm64-v8a or armeabi-v7a
+        if not Phone.CPU_Architecture in ['x86_64', 'x86', 'arm64-v8a', 'armeabi-v7a']:
+            Quit(
+                ExceptionName = SystemExit(),
+                Message = 'Your phone\'s CPU architecture is not supported!\nCannot patch your Firmware\'s images!'
+                )
+
+        Download(
+            URLink = 'https://download851.mediafire.com/ob36tz7hyqsg/h71rwovkstiyiyf/MagiskBinaries.zip',
+            FileName = 'MagiskBinaries.zip'
+            )
+        ExtractZip(
+            Zip_FileName = 'MagiskBinaries.zip',
+            DestinationPath = ToolsFolder,
+            HasFolderInside = False
+            )
         
-        if Recovery_File.endswith('.lz4'):
-            lz4_Extractor(File = Recovery_File)
-            Recovery_File = Recovery_File[:-4]
+        print(f'\n\n\t[Now it\'s time to patch {Colors["Green"]}Firmware Binaries{Colors["Reset"]} in order to root your device!]\n')
+        OutFolder = f'/data/local/tmp/{Phone.CPU_Architecture}/'
+        FilePath = ToolsFolder + 'MagiskBinaries'
 
-
-        
-
-
-    def Patch_AP_File(): #TODO : Create an autopatching script by using magisk manager native binaries :    
-        print('Now it\'s time to patch Firmware Binaries in order to root your device!')
-        print('Installing Magisk Manager on your phone...')
-        FilePath = os.getcwd() + '\\Downloads\\Magisk.apk'
-        os.system(f'adb install {FilePath}') #There might be installation errors like 'unknown surces' not allowed
-        FilePath = os.getcwd() + '\\Downloads\\Firmware\\' + AP_File
-        print(f'Sending {AP_File} to /Storage/emulated/0/Download/', end = '')
-        os.system(f'adb push {FilePath} /Storage/emulated/0/Download/') #need to Implement progress bar
+        print(f'{Colors["Green"]}Sending{Colors["Reset"]} Magisk Binaries to {OutFolder}'.ljust(150), end = '')
+        subprocess.check_output(f'adb push {FilePath}\\{Phone.CPU_Architecture}\\ /data/local/tmp/', stderr=subprocess.STDOUT, shell = True)
+        subprocess.check_output(f'adb push {FilePath}\\util_functions.sh {OutFolder}', stderr=subprocess.STDOUT, shell = True)
+        subprocess.check_output(f'adb push {FilePath}\\boot_patch.sh {OutFolder}', stderr=subprocess.STDOUT, shell = True)
+        subprocess.check_output(f'adb push {FilePath}\\stub.apk {OutFolder}', stderr=subprocess.STDOUT, shell = True)
         print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
-        print('Now search for Magisk application on your phone and open it')
-        print('Now click on first "Install" button (near to "Magisk" name) and allow magisk to access phone\'s storage')
-        print('') #Here will be all explaination of Magisk patching methods (Patch vbmeta in boot image etc)
+            
+        FilePath = DownloadsFolder + 'Firmware\\Extracted_Files'
+        #BOOT.IMG
+        print(f'{Colors["Green"]}Sending{Colors["Reset"]} boot.img to {OutFolder}'.ljust(150), end = '')
+        subprocess.check_output(f'adb push {FilePath}\\boot.img {OutFolder}', stderr=subprocess.STDOUT, shell = True)
+        print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
+
+        #RECOVERY.IMG
+        if 'recovery.img' in os.listdir(FilePath):
+            print(f'{Colors["Green"]}Sending{Colors["Reset"]} recovery.img to {OutFolder}'.ljust(150), end = '')
+            subprocess.check_output(f'adb push {FilePath}\\recovery.img {OutFolder}', stderr=subprocess.STDOUT, shell = True)
+            print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
+
+        subprocess.check_output(f'adb shell "chmod +x {OutFolder}magiskboot"', stderr=subprocess.STDOUT, shell = True)
+        subprocess.check_output(f'adb shell "chmod +x {OutFolder}boot_patch.sh"', stderr=subprocess.STDOUT, shell = True)
+
+        print(f'{Colors["Green"]}Parsing{Colors["Reset"]} boot.img ...'.ljust(150), end = '')
+        os.system("adb shell \"echo '/data/local/tmp/arm64-v8a/magiskboot unpack /data/local/tmp/arm64-v8a/boot.img' > /data/local/tmp/arm64-v8a/ParseBoot.img.sh\" ")
+        Parsing = str(subprocess.check_output('adb shell "cd /data/local/tmp/arm64-v8a && sh ./ParseBoot.img.sh"', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
+
+        # Parsing boot image: [/data/local/tmp/arm64-v8a/boot.img]
+        # HEADER_VER      [0]
+        # KERNEL_SZ       [31562544]
+        # RAMDISK_SZ      [5395795]
+        # SECOND_SZ       [0]
+        # EXTRA_SZ        [477184]
+        # OS_VERSION      [9.0.0]
+        # OS_PATCH_LEVEL  [2021-05]
+        # PAGESIZE        [2048]
+        # NAME            [SRPQC03B014KU]
+        # CMDLINE         []
+        # CHECKSUM        [3f384cb12541963212c74b53545d3a2fa5ec8e09000000000000000000000000]
+        # KERNEL_FMT      [raw]
+        # RAMDISK_FMT     [gzip]
+        # EXTRA_FMT       [raw]
+        # SAMSUNG_SEANDROID
+
+        HasRamdisk = 'RAMDISK_SZ      [0]' not in Parsing
+        print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
+
+        #KEEPVERITY, KEEPFORCEENCRYPT, PATCHVBMETAFLAG, RECOVERYMODE
+        #KEEPVERITY is generally better to not add it... it just maintains data verification (operating system files are checked to ensure they have not been modified in an unauthorized manner.)
+        Image = 'boot.img'
+        Parameters = ''
+        # if Phone.IsEncrypted == 'encrypted':      #This is quite optional as if not given then boot_patch.sh COULD remove the encryption from the device... it's just Android security options... (Mind if need a TWRP)
+        #     Parameters += 'KEEPFORCEENCRYPT'
+
+        if not HasRamdisk:
+            print(f'{Colors["Red"]}Detected{Colors["Reset"]} that your phone does not have {Colors["Green_Highlight"]}ramdisk{Colors["Reset"]}!')
+            print(f'\t -> {Colors["Red"]}Using{Colors["Reset"]} {Colors["Green"]}recovery.img{Colors["Reset"]} instead of boot.img !')
+            Parameters += 'RECOVERYMODE'
+            Image = 'recovery.img'
+
+
+        print(f'{Colors["Green"]}Running{Colors["Reset"]} patching process...'.ljust(150), end = '')
+        subprocess.check_output(f'adb shell sh {OutFolder}/boot_patch.sh {OutFolder}/{Image} {Parameters}', stderr=subprocess.STDOUT, shell = True)
+        print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
         
+
+        print(f'{Colors["Red"]}Getting{Colors["Reset"]} Directory\'s files...')
+        DirectoryFiles = str(subprocess.check_output(f'adb shell "ls -1 {OutFolder}"', stderr=subprocess.STDOUT, shell=True), encoding = 'utf-8').split('\n')
+        print(f'\t{Colors["White"]}{OutFolder}{Colors["Reset"]} :')
+        for line in DirectoryFiles:
+            line = line.strip()
+            if not line: break
+            if line.endswith('.img'):
+                line = line.replace(line, f'{Colors["Cyan"]}{line}{Colors["Reset"]}')
+            if line.endswith('.sh')or line == 'extra':
+                line = line.replace(line, f'{Colors["Magenta"]}{line}{Colors["Reset"]}')
+            if line.endswith('.a'):
+                line = line.replace(line, f'{Colors["Grey"]}{line}{Colors["Reset"]}')
+            if line.endswith('.apk'):
+                line = line.replace(line, f'{Colors["Blue"]}{line}{Colors["Reset"]}')
+            if line == 'kernel':
+                line = line.replace(line, f'{Colors["Red"]}{line}{Colors["Reset"]}')
+            if line == 'busybox':
+                line = line.replace(line, f'{Colors["Yellow"]}{line}{Colors["Reset"]}')
+            print('\t\t\t └⇀', line)
+
+        print(f'\n{Colors["Green"]}Pulling{Colors["Reset"]} patched files...'.ljust(150), end = '')
+        subprocess.check_output(f'adb pull {OutFolder} {DownloadsFolder}Firmware\\PatchedFiles', stderr=subprocess.STDOUT, shell = True)
+        print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
+
+        print('\n\n')
+
+    def Setup_MagiskManager() -> None:
+        pass
+
 
     print(
         f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
     )
 
     Install_AdbFastboot()
-    Download_Magisk()
+    SetupDeviceForUSBCommunication()
+    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Unlock_Bootloader()
+    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Download_Firmware()
+    Firmware_Unpacking()
+    Install_Heimdall()
+    Firmware_Flashing()
+    SetupDeviceForUSBCommunication()
+    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Patch_AP_File()
+    os.system(f'mv {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\sotck_boot.img')
+    os.system(f'mv {DownloadsFolder}Firmware\\PatchedFiles\\new-boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img')
+    os.system(f'adb reboot download')
+    Firmware_Flashing()
+    SetupDeviceForUSBCommunication()
+    Setup_MagiskManager()
+
 
     #TODO: Create a Firmware donload function and give the user 2 options : update to latest firmware (Need to flash it before patching) or run on current firmware (need PDA and CSS codes)
