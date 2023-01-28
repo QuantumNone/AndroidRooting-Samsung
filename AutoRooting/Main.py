@@ -30,7 +30,10 @@ def GetPhoneInformations() -> dict[str, str]:
         'Android Version': 'ro.build.version.release',
         'PDA': 'ro.build.PDA', #SAMSUNG FIRMWARES NEED PDA and CSS
         'CSC': 'ro.csc.country_code',
-        'Region': 'ro.build.version.codename' #[REL, TIM] italy
+        'Region': 'ro.build.version.codename', #[REL, TIM] italy,
+        'IsEncrypted': 'ro.crypto.state',
+        'CPU_Architecture': 'ro.product.cpu.abi'
+        #Check device Charge -> Charge > 30%
     }
     subprocess.call('cls', shell=True)
 
@@ -59,6 +62,12 @@ class Phone:
         self.PDA = PhoneInformations['PDA']
         self.CSC = PhoneInformations['CSC']
         self.Region = PhoneInformations['Region']
+        self.CPU_Architecture = PhoneInformations['CPU_Architecture']
+        self.BatteryLevel = str(subprocess.check_output(f'adb shell dumpsys battery | findstr "level"', stderr = subprocess.STDOUT, shell = True)).strip().split(': ')[1]
+        self.IsEncrypted = PhoneInformations['IsEncrypted']
+
+        if str(subprocess.check_output(f'adb shell ls -l /dev/block/by-name | findstr "level"', stderr = subprocess.STDOUT, shell = True)).strip().split(' -> ')[0] == 'vbmeta':
+            self.HasVBMeta = True
 
 Device = Phone()
 
