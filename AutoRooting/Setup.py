@@ -9,7 +9,7 @@ Colors = rutil.Colors
 
 Platform = rutil.getPlatform()
 
-if not rutil.getDiskSpace() > 17179869184:
+if not rutil.getDiskSpace() > 17179869184: #Need 20Gb of space because need to download firmware (Max 6Gb), unpack it and if samsung then unpack firmware's files (an other 6 Gb), so 18 Gb for firmware
     print(
         f"Less than {Colors['Red']}16 Gigabytes{Colors['Reset']} of disk space is available, setup cannot continue."
     )
