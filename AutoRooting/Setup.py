@@ -1,4 +1,6 @@
-import Scripts.AutoRootUtilities as rutil
+#Copyright (C) <2023> by <Quantum>
+
+import Scripts.Utilities as rutil
  
 # Colors for String formatting :
 Colors = rutil.Colors
@@ -9,7 +11,7 @@ Colors = rutil.Colors
 
 Platform = rutil.getPlatform()
 
-if not rutil.getDiskSpace() > 17179869184: #Need 20Gb of space because need to download firmware (Max 6Gb), unpack it and if samsung then unpack firmware's files (an other 6 Gb), so 18 Gb for firmware
+if not rutil.getDiskSpace() > 21474836480:
     print(
         f"Less than {Colors['Red']}16 Gigabytes{Colors['Reset']} of disk space is available, setup cannot continue."
     )
@@ -53,4 +55,21 @@ elif Platform == "Linux":
 # TODO: Do more setup
 elif Platform == "Darwin":
     print("MacOS System Setup is currently not implemented. Sorry!")
+
+
+
+try:
+    rutil.os.mkdir("Tools")
+except FileExistsError:
+    pass
+try:
+    rutil.os.mkdir("Downloads")
+except FileExistsError:
+    pass
+
+rutil.Pip_Installer(Package = 'tqdm')
+
+
+rutil.AddToEnvironmentPath(Directory = rutil.DownloadsFolder)
+rutil.AddToEnvironmentPath(Directory = rutil.ToolsFolder)
 
