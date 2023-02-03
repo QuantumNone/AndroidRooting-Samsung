@@ -19,19 +19,19 @@ print(
 
 
                                                             [{Colors["Green"]}Description{Colors["Reset"]}]:                                                    
-    {Colors["White"]}    .▄▄▄  ▄• ▄▌ ▄▄▄·  ▐ ▄ ▄▄▄▄▄▄• ▄▌• ▌ ▄ ·.  {Colors["Reset"]}                This "{Colors["Underline"]}AutoRooting{Colors["Reset"]}" script is a sophisticated system that incorporates a highly {Colors["Underline"]}advanced device status identification algorithm{Colors["Reset"]}. 
-    {Colors["White"]}    ▐▀•▀█ █▪██▌▐█ ▀█ •█▌▐█•██  █▪██▌·██ ▐███▪ {Colors["Reset"]}                This allows for the determination of the current situation of the Android device and the selection of the {Colors["Underline"]}optimal solution for rooting{Colors["Reset"]}. 
-    {Colors["White"]}    █▌·.█▌█▌▐█▌▄█▀▀█ ▐█▐▐▌ ▐█.▪█▌▐█▌▐█ ▌▐▌▐█· {Colors["Reset"]}                The script employs cutting-edge technologies to ensure a safe and reliable rooting process, preventing possible damage to the device. 
-    {Colors["White"]}    ▐█▪▄█·▐█▄█▌▐█ ▪▐▌██▐█▌ ▐█▌·▐█▄█▌██ ██▌▐█▌ {Colors["Reset"]}                Furthermore, this script is subject to {Colors["Underline"]}constant updates{Colors["Reset"]} to ensure compatibility with the latest Android devices.
-    {Colors["White"]}    ·▀▀█.  ▀▀▀  ▀  ▀ ▀▀ █▪ ▀▀▀  ▀▀▀ ▀▀  █▪▀▀▀ {Colors["Reset"]}           
-    {Colors["White"]}            ▄▄▄              ▄▄▄▄▄            {Colors["Reset"]}                                    
-    {Colors["White"]}            ▀▄ █·▪     ▪     •██              {Colors["Reset"]}           [{Colors["Green"]}License{Colors["Reset"]}]:                                                                                                   [{Colors["Green"]}Contributors{Colors["Reset"]}]:
-    {Colors["White"]}            ▐▀▀▄  ▄█▀▄  ▄█▀▄  ▐█.▪            {Colors["Reset"]}           [{Colors["Red"]}GNU General Public License v3.0{Colors["Reset"]}]:       
-    {Colors["White"]}            ▐█•█▌▐█▌.▐▌▐█▌.▐▌ ▐█▌·            {Colors["Reset"]}                This program is free software: you can redistribute it and/or modify                                  
-    {Colors["White"]}            .▀  ▀ ▀█▄▀▪ ▀█▄▀▪ ▀▀▀             {Colors["Reset"]}                it under the terms of the GNU General Public License as published by  
+    {Colors["Green"]}    __________                   __           {Colors["Reset"]}               [{Colors["Red"]}Rooty{Colors["Reset"]}] is a sophisticated script which incorporates a highly {Colors["Underline"]}advanced device status identification algorithm{Colors["Reset"]}. 
+    {Colors["Green"]}    \______   \  ____    ____  _/  |_  ___.__.{Colors["Reset"]}                This allows for the determination of the current situation of the Android device and the selection of the {Colors["Underline"]}optimal solution for rooting{Colors["Reset"]}. 
+    {Colors["Green"]}     |       _/ /  _ \  /  _ \ \   __\<   |  |{Colors["Reset"]}                The script employs cutting-edge technologies to ensure a safe and reliable rooting process, preventing possible damage to the device. 
+    {Colors["Green"]}     |    |   \(  <_> )(  <_> ) |  |   \___  |{Colors["Reset"]}                Furthermore, this script is subject to {Colors["Underline"]}constant updates{Colors["Reset"]} to ensure compatibility with the latest Android devices.
+    {Colors["Green"]}     |____|_  / \____/  \____/  |__|   / ____|{Colors["Reset"]}           
+    {Colors["Green"]}            \/                         \/     {Colors["Reset"]}                                    
+                                                            [{Colors["Green"]}License{Colors["Reset"]}]:                                                                                                   [{Colors["Green"]}Contributors{Colors["Reset"]}]:
+           [Automating Android Rooting process]                   [{Colors["Red"]}GNU General Public License v3.0{Colors["Reset"]}]:       
+            {Colors["Red"]}Copyright{Colors["Reset"]} (C) <2023> by <Quantum>                     This program is free software: you can redistribute it and/or modify                                  
+                                                                  it under the terms of the GNU General Public License as published by  
                                                                   the Free Software Foundation, either version 3 of the License, or                         
-          [Automating Android Rooting process]                    (at your option) any later version.                                                         
-           {Colors["Red"]}Copyright{Colors["Reset"]} (C) <2023> by <Quantum>                                                                                             
+                                                                  (at your option) any later version.                                                         
+                                                                                                        
                                                                   This program is distributed in the hope that it will be useful,       
                                                                   {Colors["Underline"]}but WITHOUT ANY WARRANTY{Colors["Reset"]}; without even the implied warranty of     
                                                                   {Colors["Underline"]}MERCHANTABILITY{Colors["Reset"]} or FITNESS FOR A PARTICULAR PURPOSE.  See the    
@@ -46,67 +46,76 @@ print(
 
     [{Colors["Green"]}GitHub{Colors["Reset"]}]: [{Colors["Blue"]}https://github.com/QuantumNone/AndroidRooting-Samsung{Colors["Reset"]}]
     
-    ''')
+    ''')    #Check if any tool need to share license, for example heimdall or magisk...
 
 input(f'    [{Colors["Red"]}Continue{Colors["Reset"]}]: press {Colors["Green"]}ENTER{Colors["Reset"]} in order to continue the execution of this program: ')
 
 
-print(fr'''{Colors["White"]}
+# print(fr'''{Colors["White"]}
 
                 
-                __________                   __                                                                   
-                \______   \  ____    ____  _/  |_  ___.__.                                                        
-                 |       _/ /  _ \  /  _ \ \   __\<   |  |                                                        
-                 |    |   \(  <_> )(  <_> ) |  |   \___  |                                                        
-                 |____|_  / \____/  \____/  |__|   / ____|                                                        
-                        \/                         \/                                                             
+#                 __________                   __                                                                   
+#                 \______   \  ____    ____  _/  |_  ___.__.                                                        
+#                  |       _/ /  _ \  /  _ \ \   __\<   |  |                                                        
+#                  |    |   \(  <_> )(  <_> ) |  |   \___  |                                                        
+#                  |____|_  / \____/  \____/  |__|   / ____|                                                        
+#                         \/                         \/                                                             
                                                                                                                   
-  
-                  __________                   __                                                     
-                  \______   \  ____    ____  _/  |_                                                   
-                   |       _/ /  _ \  /  _ \ \   __\                                                  
-                   |    |   \(  <_> )(  <_> ) |  |                                                    
-                   |____|_  / \____/  \____/  |__|                                                    
-                          \/                                                                          
-      _________                               .__   __                                                
-     /   _____/  ____    ____   __ __ _______ |__|_/  |_  ___.__.                                     
-     \_____  \ _/ __ \ _/ ___\ |  |  \\_  __ \|  |\   __\<   |  |                                     
-     /        \\  ___/ \  \___ |  |  / |  | \/|  | |  |   \___  |                                     
-    /_______  / \___  > \___  >|____/  |__|   |__| |__|   / ____|                                     
-            \/      \/      \/                            \/                                          
+    #   .▄▄▄  ▄• ▄▌ ▄▄▄·  ▐ ▄ ▄▄▄▄▄▄• ▄▌• ▌ ▄ ·.  
+    # ▐▀•▀█ █▪██▌▐█ ▀█ •█▌▐█•██  █▪██▌·██ ▐███▪ 
+    # █▌·.█▌█▌▐█▌▄█▀▀█ ▐█▐▐▌ ▐█.▪█▌▐█▌▐█ ▌▐▌▐█· 
+    # ▐█▪▄█·▐█▄█▌▐█ ▪▐▌██▐█▌ ▐█▌·▐█▄█▌██ ██▌▐█▌ 
+    # ·▀▀█.  ▀▀▀  ▀  ▀ ▀▀ █▪ ▀▀▀  ▀▀▀ ▀▀  █▪▀▀▀ 
+    #         ▄▄▄              ▄▄▄▄▄            
+    #         ▀▄ █·▪     ▪     •██              
+    #         ▐▀▀▄  ▄█▀▄  ▄█▀▄  ▐█.▪            
+    #         ▐█•█▌▐█▌.▐▌▐█▌.▐▌ ▐█▌·            
+    #         .▀  ▀ ▀█▄▀▪ ▀█▄▀▪ ▀▀▀             
+#                   __________                   __                                                     
+#                   \______   \  ____    ____  _/  |_                                                   
+#                    |       _/ /  _ \  /  _ \ \   __\                                                  
+#                    |    |   \(  <_> )(  <_> ) |  |                                                    
+#                    |____|_  / \____/  \____/  |__|                                                    
+#                           \/                                                                          
+#       _________                               .__   __                                                
+#      /   _____/  ____    ____   __ __ _______ |__|_/  |_  ___.__.                                     
+#      \_____  \ _/ __ \ _/ ___\ |  |  \\_  __ \|  |\   __\<   |  |                                     
+#      /        \\  ___/ \  \___ |  |  / |  | \/|  | |  |   \___  |                                     
+#     /_______  / \___  > \___  >|____/  |__|   |__| |__|   / ____|                                     
+#             \/      \/      \/                            \/                                          
                                                                                                       
                                                                                                   
-    __________                   __      _________                               .__   __             
-    \______   \  ____    ____  _/  |_   /   _____/  ____    ____   __ __ _______ |__|_/  |_  ___.__.  
-     |       _/ /  _ \  /  _ \ \   __\  \_____  \ _/ __ \ _/ ___\ |  |  \\_  __ \|  |\   __\<   |  |  
-     |    |   \(  <_> )(  <_> ) |  |    /        \\  ___/ \  \___ |  |  / |  | \/|  | |  |   \___  |  
-     |____|_  / \____/  \____/  |__|   /_______  / \___  > \___  >|____/  |__|   |__| |__|   / ____|  
-            \/                                 \/      \/      \/                            \/       
+#     __________                   __      _________                               .__   __             
+#     \______   \  ____    ____  _/  |_   /   _____/  ____    ____   __ __ _______ |__|_/  |_  ___.__.  
+#      |       _/ /  _ \  /  _ \ \   __\  \_____  \ _/ __ \ _/ ___\ |  |  \\_  __ \|  |\   __\<   |  |  
+#      |    |   \(  <_> )(  <_> ) |  |    /        \\  ___/ \  \___ |  |  / |  | \/|  | |  |   \___  |  
+#      |____|_  / \____/  \____/  |__|   /_______  / \___  > \___  >|____/  |__|   |__| |__|   / ____|  
+#             \/                                 \/      \/      \/                            \/       
 
 
 
 
-            __________           __   .__                                                                     
-            \______   \ ___.__._/  |_ |  |__    ____    ____                                                  
-             |     ___/<   |  |\   __\|  |  \  /  _ \  /    \                                                 
-             |    |     \___  | |  |  |   Y  \(  <_> )|   |  \                                                
-             |____|     / ____| |__|  |___|  / \____/ |___|  /                                                
-                        \/                 \/              \/                                                 
-                    __________                   __                                                           
-                    \______   \  ____    ____  _/  |_                                                         
-                     |       _/ /  _ \  /  _ \ \   __\                                                        
-                     |    |   \(  <_> )(  <_> ) |  |                                                          
-                     |____|_  / \____/  \____/  |__|                                                          
-                            \/                                                                                
+#             __________           __   .__                                                                     
+#             \______   \ ___.__._/  |_ |  |__    ____    ____                                                  
+#              |     ___/<   |  |\   __\|  |  \  /  _ \  /    \                                                 
+#              |    |     \___  | |  |  |   Y  \(  <_> )|   |  \                                                
+#              |____|     / ____| |__|  |___|  / \____/ |___|  /                                                
+#                         \/                 \/              \/                                                 
+#                     __________                   __                                                           
+#                     \______   \  ____    ____  _/  |_                                                         
+#                      |       _/ /  _ \  /  _ \ \   __\                                                        
+#                      |    |   \(  <_> )(  <_> ) |  |                                                          
+#                      |____|_  / \____/  \____/  |__|                                                          
+#                             \/                                                                                
 
 
 
 
-{Colors["Reset"]}
+# {Colors["Reset"]}
 
 
 
-''')
+# ''')
 
 # print(
 #         rf'''
