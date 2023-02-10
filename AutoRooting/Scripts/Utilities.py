@@ -44,7 +44,7 @@ class function: #Used just by Type Hinting for understanding variable type
     pass
 
 def Quit(ExceptionName: Exception, Message: str) -> Exception:
-    print('\n', Message)
+    print('\n' + Message)
     input(f"Press {Colors['Red']}ENTER{Colors['Reset']} to exit : ")
     raise ExceptionName
 
@@ -159,7 +159,13 @@ def DriverInstaller():
 class DownloadFailedError(Exception):
     pass
 
+
 def Download(URLink: str, FileName: str, retries: int = 2) -> None:
+    """
+    This function will download any file from a given URLink under the name FileName in DownloadsFolder
+    
+    Download(URLink = 'google.com/DownloadFile.zip', FileName = 'File1.zip')
+    """
     try:
         if os.path.getsize(DownloadsFolder + FileName) <= 1_000_000:
             os.remove(DownloadsFolder + FileName)
@@ -171,16 +177,22 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None:
 
     DestinationPath = DownloadsFolder + FileName
     try:
-        print(f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
-        with tqdm(miniters=1, desc = f'{Colors["Green"]}Download progress{Colors["Reset"]}') as DownFile:  #Progress bar
-            urllib.request.urlretrieve(
-                URLink, 
-                DestinationPath, 
-                reporthook = DownFile.update()
-            )
-        print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
 
-    except urllib.error.ContentTooShortError:  # If the download has been interrupted for Connection Lost or the connection was Forcibly closed
+        print(f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
+        response = requests.get(URLink, stream=True)
+        total_size = int(response.headers.get('content-length', 0))
+        block_size = 1024 #1 Kibibyte
+        progress = tqdm(miniters=1, total=total_size, unit='MB', unit_scale=True, desc=f'{Colors["Green"]}Download progress{Colors["Reset"]}')
+
+        with open(DestinationPath, "wb") as file:
+            for data in response.iter_content(block_size):
+                progress.update(len(data))
+                file.write(data)
+
+        progress.close()
+        print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]")
+
+    except requests.exceptions.ConnectionError:  # If the download has been interrupted for Connection Lost or the connection was Forcibly closed
         print(f"{Colors['Red']}Failed{Colors['Reset']} to download {FileName}...")
         if not isConnected():
             print("\t[Please make sure you are connected to Internet!]")
@@ -201,31 +213,66 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None:
 
 
 # Gets zip file name and extracts its contents inside a path : Zip_FileName = 'Ajk.zip', DestinationPath = ToolsFolder -> inside ToolsFolder will be extracted all files
-def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool):
-    
-    if not HasFolderInside:
-        DestinationPath += Zip_FileName[:-4]
+def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool, Rename: bool = False, SpecificFile: str = ''):
 
-    Zip_Path = DownloadsFolder + Zip_FileName
+    ListDir_Before = set(os.listdir(DestinationPath))
     try:
-        if os.path.getsize(ToolsFolder + Zip_FileName[:-4]) <= 1_000_000: #Checks if folder's size is 0Kb, if so remove it and re-extract the zip file
+        if os.path.getsize(DestinationPath + Zip_FileName[:-4]) <= 1_000_000: #Checks if folder's size is 0Kb, if so remove it and re-extract the zip file
             os.remove(ToolsFolder + Zip_FileName[:-4])
     except:
         pass
+
+    if not HasFolderInside:
+        DestinationPath += Zip_FileName[:-4]
     
-    if Zip_FileName[:-4] in os.listdir(ToolsFolder):
+    Zip_Path = DownloadsFolder + Zip_FileName
+    
+    if Zip_FileName[:-4] in os.listdir(ToolsFolder) or Zip_FileName[:-4] in os.listdir(DownloadsFolder):
         return
 
+    ListDir_Before = set(os.listdir(DestinationPath))
     print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
     
     with zipfile.ZipFile(Zip_Path, "r") as zip_ref:
         try:
-            zip_ref.extractall(DestinationPath, pwd = None, members = tqdm(zip_ref.infolist(), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'))
+            if SpecificFile != '':
+                zip_ref.extract(member = SpecificFile, path = DestinationPath, pwd = None)
+            else:
+                zip_ref.extractall(DestinationPath, pwd = None, members = tqdm(zip_ref.infolist(), unit='MB', desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'))
 
         except zipfile.error as ex:
             Quit(ExceptionName = ex(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!')
 
-    print(f"[{Colors['Green']}Done{Colors['Reset']}!]")
+
+    ListDir_After = set(os.listdir(DestinationPath))
+    if Rename and HasFolderInside:
+        Extracted_FolderName = list(ListDir_After - ListDir_Before)[0]
+        try:
+            os.mkdir(DownloadsFolder + Zip_FileName[:-4])
+        except:
+            pass
+        subprocess.check_output(f'move {DownloadsFolder}{Extracted_FolderName}\* {DownloadsFolder}{Zip_FileName[:-4]}', stderr = subprocess.STDOUT, shell = True)
+        # subprocess.check_output(f'rmdir {DownloadsFolder}Temp\\', stderr = subprocess.STDOUT, shell = True)
+        try:
+            os.rmdir(DownloadsFolder + Extracted_FolderName)
+        except:
+            pass
+        print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]")
+        # return Extracted_FolderName + '.zip'
+        
+
+    print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]")
+    
+
+def GetFileName_FromZip(Zip_Path: str, FileName) -> bool:
+    try:
+        with zipfile.ZipFile(Zip_Path, "r") as zip_ref:
+            namelist = zip_ref.namelist()
+            if FileName in namelist:
+                return True
+            return False
+    except Exception as ex:
+        Quit(ExceptionName = ex, Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find {FileName} file!')
 
 
 
@@ -270,32 +317,74 @@ def Install_AdbFastboot():
 
     ExtractZip(
         Zip_FileName = "platform-tools.zip",
-        DestinationPath = ToolsFolder,
-        HasFolderInside = True
+        DestinationPath = ToolsFolder,  #ToolsFolder is already in local Env. Path.
+        HasFolderInside = True #-> "platform-tools"
     )
     print(
         f"{Colors['Red']}Removing{Colors['Reset']} platform-tools.zip",
         end = ''
     )
-    os.remove('Downloads\\plattools.zip')
+    os.remove(DownloadsFolder + 'plattools.zip')
 
     print(f'[{Colors["Green"]}Done{Colors["Green"]}!]')
 
-def Check_AdbConnection(DriversInstaller: function = False, AdbRetries: int = 0) -> None:
-    print(f'{Colors["Green"]}Checking{Colors["Reset"]} Adb Connection...'.ljust(150), end = '')
+def Install_AdbDrivers():
+    Download(
+        URLink = "https://dl.google.com/android/repository/usb_driver_r13-windows.zip",
+        FileName = "AdbDrivers.zip"
+    )
+
+    ExtractZip(
+        Zip_FileName = "AdbDrivers.zip",
+        DestinationPath = ToolsFolder,
+        HasFolderInside = True #-> "usb_driver" 
+    )
+    if not checkTool('pnputil.exe'):
+        Quit(
+            ExceptionName = SystemExit(),
+            Message = f'Your windows machine has not {Colors["Red"]}pnputil.exe{Colors["Reset"]} (A driver manager) installed!'
+        )
+
+    print(f'{Colors["Green"]}Trying{Colors["Reset"]} to install Google USB Drivers (Adb&Fastboot drivers)...'.ljust(150), end = '')
+    
+    pnputil_Out = str(subprocess.check_output(f'pnputil /add-driver {ToolsFolder}usb_driver\\android_winusb.inf /install', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8')
+    Published_Name = pnputil_Out.split('\n')[4] if 'Published Name:' in pnputil_Out.split('\n')[4] else ''
+    Driver_Info = str(subprocess.check_output('pnputil /enum-drivers', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8').split('\n')
+    Driver_Info = Driver_Info[Driver_Info.index(Published_Name):Driver_Info.index(Published_Name) + 9]
+    if 'successfully' not in pnputil_Out:
+        Quit(
+            ExceptionName = SystemExit(),
+            Message = f'\n[{Colors["Red"]}pnputil.exe{Colors["Reset"]}] cannot install or update Adb USB drivers for an unknown reason!' #TODO: Check for any error on using pnputil.exe
+        )
+    print(f'[{Colors["Green"]}Installed{Colors["Reset"]}!]')    #Same process with Fastboot drivers, to install them the user has to be rebooted into fastboot.
+
+    print('Driver Informations: ')
+    for line in Driver_Info:
+        Information = line.split(':')[0]
+        Info = line.split(':')[1].strip()
+        print(f'\t[{Colors["Red"]}{Information}{Colors["Reset"]}]:'.ljust(20), f'{Colors["Green"]}{Info}{Colors["Reset"]}')
+
+
+def Check_AdbConnection(AdbOrFastboot: str, DriversInstaller: function = False, Retries: int = 2) -> None:
+    print(f'{Colors["Green"]}Checking{Colors["Reset"]} {AdbOrFastboot} Connection...'.ljust(150), end = '')
     try:
-        AdbDevices_output = subprocess.check_output("adb devices", stderr = subprocess.STDOUT, shell = True, encoding = 'utf-8').strip()
+        AdbDevices_output = subprocess.check_output(f"{AdbOrFastboot} devices", stderr = subprocess.STDOUT, shell = True, encoding = 'utf-8').strip()
         if not AdbDevices_output[-6:] == 'device':
-            if AdbRetries == 2:
-                Quit(ExceptionName = SystemExit(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} determinate Adb Connection!')
-            elif AdbRetries == 1:
+            if Retries == 0:
+                if not askUser(f'\t{Colors["Red"]}Cannot{Colors["Reset"]} determinate {AdbOrFastboot} connection!\n\tDo you want to check it again?'):
+                    Quit(
+                        ExceptionName = SystemExit(), 
+                        Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} determinate Adb Connection!'
+                        )
+                Check_AdbConnection(AdbOrFastboot, DriversInstaller)
+
+            elif Retries == 1:
                 if DriverInstaller:
                     DriversInstaller()
-
-            elif AdbRetries == 0:
+            elif AdbOrFastboot.lower() == 'adb':
                 print(
                 f'''
-            {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
+            {Colors["Red"]}\nCannot determinate{Colors["Reset"]} USB Connection!
     Please, make sure "{Colors["Red"]}USB debugging{Colors["Reset"]}" option is enabled and the {Colors["Green"]}USB cable{Colors["Reset"]} is plugged in your Android and in your Computer's USB port!
     If this message comes out on your Android's screen then allow it:
         {Colors["Green_Highlight"]}Allow USB debugging? {Colors["Reset"]}
@@ -306,7 +395,10 @@ def Check_AdbConnection(DriversInstaller: function = False, AdbRetries: int = 0)
                     ''')
 
             input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
-            Check_AdbConnection(DriversInstaller, AdbRetries + 1)
+            Check_AdbConnection(AdbOrFastboot, DriversInstaller, Retries - 1)
+        
+        else:
+            return True
 
     except subprocess.CalledProcessError:
         Quit(
@@ -331,13 +423,6 @@ def Check_FastbootConnection() -> bool: #TODO: Work on this function once Samsun
     {Colors["Red"]}Cannot determinate{Colors["Reset"]} USB Connection!
     This could be because Adb&Fastboot or USB Drivers are not correctly installed...'''
         )
-
-
-def Install_GoogleUSBDriver():  #Required for all devices that use Fastboot Mode
-    pass
-
-def Install_MTKDriver():    #Chinese phones
-    pass
 
 def Download_Magisk():
 
@@ -364,9 +449,9 @@ def Download_Magisk():
         )
 
 
-def Patch_Image_File(Device: object) -> None: #Returns a folder in Firmware's folder called 'PatchedFiles'
+def Patch_Image_File(Device: object, BootImage_Name: str = 'boot.img') -> None: #Returns a folder in Firmware's folder called 'PatchedFiles'
         #Possible CPU Architectures : x86_64, x86, arm64-v8a or armeabi-v7a
-        if Device.CPU_Architecture not in ['x86_64', 'x86', 'arm64-v8a', 'armeabi-v7a']:
+        if Device.CPU_Architecture not in ['x86_64', 'x86', 'arm64-v8a', 'armeabi-v7a']:    #Maybe add this on the setup or in Main.py...
             Quit(
                 ExceptionName = SystemExit(),
                 Message = 'Your phone\'s CPU architecture is not supported!\nCannot patch your Firmware\'s images!'
@@ -395,8 +480,8 @@ def Patch_Image_File(Device: object) -> None: #Returns a folder in Firmware's fo
             
         FilePath = DownloadsFolder + 'Firmware\\Extracted_Files'
         #BOOT.IMG
-        print(f'{Colors["Green"]}Sending{Colors["Reset"]} boot.img to {OutFolder}'.ljust(150), end = '')
-        subprocess.check_output(f'adb push {FilePath}\\boot.img {OutFolder}', stderr=subprocess.STDOUT, shell = True)
+        print(f'{Colors["Green"]}Sending{Colors["Reset"]} {BootImage_Name} to {OutFolder}'.ljust(150), end = '')
+        subprocess.check_output(f'adb push {FilePath}\\{BootImage_Name} {OutFolder}', stderr=subprocess.STDOUT, shell = True)
         print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
 
         #RECOVERY.IMG
@@ -408,8 +493,8 @@ def Patch_Image_File(Device: object) -> None: #Returns a folder in Firmware's fo
         subprocess.check_output(f'adb shell "chmod +x {OutFolder}magiskboot"', stderr=subprocess.STDOUT, shell = True)
         subprocess.check_output(f'adb shell "chmod +x {OutFolder}boot_patch.sh"', stderr=subprocess.STDOUT, shell = True)
 
-        print(f'{Colors["Green"]}Parsing{Colors["Reset"]} boot.img ...'.ljust(150), end = '')
-        os.system("adb shell \"echo '/data/local/tmp/arm64-v8a/magiskboot unpack /data/local/tmp/arm64-v8a/boot.img' > /data/local/tmp/arm64-v8a/ParseBoot.img.sh\" ")
+        print(f'{Colors["Green"]}Parsing{Colors["Reset"]} {BootImage_Name} ...'.ljust(150), end = '')
+        os.system(f"adb shell \"echo '/data/local/tmp/arm64-v8a/magiskboot unpack /data/local/tmp/arm64-v8a/{BootImage_Name}' > /data/local/tmp/arm64-v8a/ParseBoot.img.sh\" ") #CHECK: If use os.system() then the script will output what it is doing...
         Parsing = str(subprocess.check_output('adb shell "cd /data/local/tmp/arm64-v8a && sh ./ParseBoot.img.sh"', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
 
         # Parsing boot image: [/data/local/tmp/arm64-v8a/boot.img]
@@ -434,7 +519,7 @@ def Patch_Image_File(Device: object) -> None: #Returns a folder in Firmware's fo
 
         #KEEPVERITY, KEEPFORCEENCRYPT, PATCHVBMETAFLAG, RECOVERYMODE
         #KEEPVERITY is generally better to not add it... it just maintains data verification (operating system files are checked to ensure they have not been modified in an unauthorized manner.)
-        Image = 'boot.img'
+        Image = BootImage_Name
         Parameters = ''
         # if Device.IsEncrypted == 'encrypted':      #This is quite optional as if not given then boot_patch.sh COULD remove the encryption from the device... it's just Android security options... (Mind if need a TWRP)
         #     Parameters += 'KEEPFORCEENCRYPT'
@@ -447,7 +532,7 @@ def Patch_Image_File(Device: object) -> None: #Returns a folder in Firmware's fo
 
 
         print(f'{Colors["Green"]}Running{Colors["Reset"]} patching process...'.ljust(150), end = '')
-        subprocess.check_output(f'adb shell sh {OutFolder}/boot_patch.sh {OutFolder}/{Image} {Parameters}', stderr=subprocess.STDOUT, shell = True)
+        subprocess.check_output(f'adb shell sh {OutFolder}/boot_patch.sh {OutFolder}/{Image} {Parameters}', stderr=subprocess.STDOUT, shell = True) #CHECK: If use os.system() then the script will output what it is doing...
         print(f'[{Colors["Green"]}Done{Colors["Reset"]}!]')
         
 
