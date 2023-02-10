@@ -1,5 +1,10 @@
 #Copyright (C) <2023> by <Quantum>
 
+#TODO: Check which samsung cannot be unlocked, such as US version.
+#US and Canada
+# Factory unlocked ones should also be affected
+#Before starting make sure any google account has been removeds
+
 from Scripts.Utilities import *
 
 def Samsung_Requirements(Device: object, Phone: classmethod):
@@ -398,7 +403,7 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
             return Command
 
 
-        Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+        Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
         os.system('adb reboot download')
         input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if your phone is in {Colors['Blue']}Download Mode{Colors['Reset']} : ")
         #Need to use heimdall detect        #TODO: Check heimdall commands' output
@@ -422,16 +427,16 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
 
     Install_AdbFastboot()
     SetupDeviceForUSBCommunication()
-    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
     Unlock_Bootloader()
-    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
     Download_Firmware()
     Firmware_Unpacking()
     Install_Heimdall()
     Firmware_Flashing()
     SetupDeviceForUSBCommunication()
-    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
-    Patch_Image_File(Device)
+    Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
+    Patch_Image_File(Device, BootImage_Name = 'boot.img')
     os.system(f'mv {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\sotck_boot.img')
     os.system(f'mv {DownloadsFolder}Firmware\\PatchedFiles\\new-boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img')
     os.system(f'adb reboot download')
