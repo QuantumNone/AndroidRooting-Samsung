@@ -3,29 +3,34 @@
 # [Main.py] will contain the instructions to follow inside functions to make the code more clear.
 # Each device model (For now only Samsung) will require a personal function with it's own instructions to follow in order to root the device
 
-from Scripts.Utilities import subprocess, Colors, Check_AdbConnection, SetupDeviceForUSBCommunication, Quit
+from Scripts.Utilities import subprocess, os, Colors, Check_AdbConnection, SetupDeviceForUSBCommunication, Quit
 import Samsung
 
 def Welcome_Screen():
+    os.system('mode con cols=260 lines=220')
+    os.system('@echo off')
+    os.system('cls')
+
+
     print(
     f'''
 
 
 
                                                             [{Colors["Green"]}Description{Colors["Reset"]}]:                                                    
-    {Colors["White"]}    .▄▄▄  ▄• ▄▌ ▄▄▄·  ▐ ▄ ▄▄▄▄▄▄• ▄▌• ▌ ▄ ·.  {Colors["Reset"]}                This "{Colors["Underline"]}AutoRooting{Colors["Reset"]}" script is a sophisticated system that incorporates a highly {Colors["Underline"]}advanced device status identification algorithm{Colors["Reset"]}. 
-    {Colors["White"]}    ▐▀•▀█ █▪██▌▐█ ▀█ •█▌▐█•██  █▪██▌·██ ▐███▪ {Colors["Reset"]}                This allows for the determination of the current situation of the Android device and the selection of the {Colors["Underline"]}optimal solution for rooting{Colors["Reset"]}. 
-    {Colors["White"]}    █▌·.█▌█▌▐█▌▄█▀▀█ ▐█▐▐▌ ▐█.▪█▌▐█▌▐█ ▌▐▌▐█· {Colors["Reset"]}                The script employs cutting-edge technologies to ensure a safe and reliable rooting process, preventing possible damage to the device. 
-    {Colors["White"]}    ▐█▪▄█·▐█▄█▌▐█ ▪▐▌██▐█▌ ▐█▌·▐█▄█▌██ ██▌▐█▌ {Colors["Reset"]}                Furthermore, this script is subject to {Colors["Underline"]}constant updates{Colors["Reset"]} to ensure compatibility with the latest Android devices.
-    {Colors["White"]}    ·▀▀█.  ▀▀▀  ▀  ▀ ▀▀ █▪ ▀▀▀  ▀▀▀ ▀▀  █▪▀▀▀ {Colors["Reset"]}           
-    {Colors["White"]}            ▄▄▄              ▄▄▄▄▄            {Colors["Reset"]}                                    
-    {Colors["White"]}            ▀▄ █·▪     ▪     •██              {Colors["Reset"]}           [{Colors["Green"]}License{Colors["Reset"]}]:                                                                                                   [{Colors["Green"]}Contributors{Colors["Reset"]}]:
-    {Colors["White"]}            ▐▀▀▄  ▄█▀▄  ▄█▀▄  ▐█.▪            {Colors["Reset"]}           [{Colors["Red"]}GNU General Public License v3.0{Colors["Reset"]}]:       
-    {Colors["White"]}            ▐█•█▌▐█▌.▐▌▐█▌.▐▌ ▐█▌·            {Colors["Reset"]}                This program is free software: you can redistribute it and/or modify                                  
-    {Colors["White"]}            .▀  ▀ ▀█▄▀▪ ▀█▄▀▪ ▀▀▀             {Colors["Reset"]}                it under the terms of the GNU General Public License as published by  
+    {Colors["Green"]}    __________                   __           {Colors["Reset"]}               [{Colors["Red"]}Rooty{Colors["Reset"]}] is a sophisticated script which incorporates a highly {Colors["Underline"]}advanced device status identification algorithm{Colors["Reset"]}. 
+    {Colors["Green"]}    \______   \  ____    ____  _/  |_  ___.__.{Colors["Reset"]}                This allows for the determination of the current situation of the Android device and the selection of the {Colors["Underline"]}optimal solution for rooting{Colors["Reset"]}. 
+    {Colors["Green"]}     |       _/ /  _ \  /  _ \ \   __\<   |  |{Colors["Reset"]}                The script employs cutting-edge technologies to ensure a safe and reliable rooting process, preventing possible damage to the device. 
+    {Colors["Green"]}     |    |   \(  <_> )(  <_> ) |  |   \___  |{Colors["Reset"]}                Furthermore, this script is subject to {Colors["Underline"]}constant updates{Colors["Reset"]} to ensure compatibility with the latest Android devices.
+    {Colors["Green"]}     |____|_  / \____/  \____/  |__|   / ____|{Colors["Reset"]}           
+    {Colors["Green"]}            \/                         \/     {Colors["Reset"]}                                    
+                                                            [{Colors["Green"]}License{Colors["Reset"]}]:                                                                                                   [{Colors["Green"]}Contributors{Colors["Reset"]}]:
+           [Automating Android Rooting process]                   [{Colors["Red"]}GNU General Public License v3.0{Colors["Reset"]}]:       
+            {Colors["Red"]}Copyright{Colors["Reset"]} (C) <2023> by <Quantum>                     This program is free software: you can redistribute it and/or modify                                  
+                                                                  it under the terms of the GNU General Public License as published by  
                                                                   the Free Software Foundation, either version 3 of the License, or                         
-          [Automating Android Rooting process]                    (at your option) any later version.                                                         
-           {Colors["Red"]}Copyright{Colors["Reset"]} (C) <2023> by <Quantum>                                                                                             
+                                                                  (at your option) any later version.                                                         
+                                                                                                        
                                                                   This program is distributed in the hope that it will be useful,       
                                                                   {Colors["Underline"]}but WITHOUT ANY WARRANTY{Colors["Reset"]}; without even the implied warranty of     
                                                                   {Colors["Underline"]}MERCHANTABILITY{Colors["Reset"]} or FITNESS FOR A PARTICULAR PURPOSE.  See the    
@@ -42,7 +47,7 @@ def Welcome_Screen():
     
     ''')    #Check if any tool need to share license, for example heimdall or magisk...
 
-    input(f'\t[{Colors["Red"]}Continue{Colors["Reset"]}]: press {Colors["Green"]}ENTER{Colors["Reset"]} in order to continue the execution of this program: ')
+    input(f'    [{Colors["Red"]}Continue{Colors["Reset"]}]: press {Colors["Green"]}ENTER{Colors["Reset"]} in order to continue the execution of this program: ')
 
 #Once the Developer options have been enabled the program will check the USB connection trough ADB
 #If the connection cannot be enstablished the problems could be:
@@ -55,6 +60,7 @@ def GetPhoneInformations() -> dict[str, str]:
     print(f'{Colors["Green"]}Getting{Colors["Reset"]} device informations...')
     PhoneInformations = {
         'Model': 'ro.product.model',
+        'Product': 'ro.build.product', #For Pixels : ex. 'cheetah'
         'Brand': 'ro.product.brand', #Check if the brand is Verizon, if so root probably cannot be executed because bootloader cannot be unlocked.
         'Build Number': 'ro.build.display.id',
         'Android Version': 'ro.build.version.release',
@@ -89,14 +95,15 @@ class Phone:
         Check_AdbConnection()
         PhoneInformations = GetPhoneInformations()
         self.Model = PhoneInformations['Model']
+        self.Product = PhoneInformations['Product']
         self.Brand = PhoneInformations['Brand']
-        self.BuildNumber = PhoneInformations['Build Number']
+        self.BuildNumber: str = PhoneInformations['Build Number']
         self.AndroidVersion = PhoneInformations['Android Version']
         self.PDA = PhoneInformations['PDA']
         self.CSC = PhoneInformations['CSC']
         self.Region = PhoneInformations['Region']
         self.CPU_Architecture = PhoneInformations['CPU_Architecture']
-        self.BatteryLevel = str(subprocess.check_output(f'adb shell dumpsys battery | findstr "level"', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8').strip().split(': ')[1].strip()
+        self.BatteryLevel = int(subprocess.check_output(f'adb shell dumpsys battery | findstr "level"', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8').strip().split(': ')[1].strip()
         self.IsEncrypted = PhoneInformations['IsEncrypted']
 
         if self.Brand == 'Verizon':
