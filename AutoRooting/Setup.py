@@ -66,8 +66,17 @@ try:
     rutil.os.mkdir("Downloads")
 except FileExistsError:
     pass
+try:
+    rutil.os.mkdir(f'{rutil.DownloadsFolder}Temp')
+except FileExistsError:
+    pass
+try:
+    rutil.os.mkdir(f'Logs')
+except FileExistsError:
+    pass
 
 rutil.Pip_Installer(Package = 'tqdm')
+rutil.Pip_Installer(Package = 'bs4')
 
 
 rutil.AddToEnvironmentPath(Directory = rutil.DownloadsFolder)
