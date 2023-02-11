@@ -425,6 +425,8 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
         f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
     )
 
+#Maybe patch the image first, then flash stock firmware and then the patched imagie instead of let the user set up the device to then flash the patched image and to so format again the phone
+
     Install_AdbFastboot()
     SetupDeviceForUSBCommunication()
     Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
@@ -436,9 +438,7 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
     Firmware_Flashing()
     SetupDeviceForUSBCommunication()
     Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
-    Patch_Image_File(Device, BootImage_Name = 'boot.img')
-    os.system(f'mv {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\sotck_boot.img')
-    os.system(f'mv {DownloadsFolder}Firmware\\PatchedFiles\\new-boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img')
+    Patch_Image_File(Device, BootImage_Name = 'boot.img') #Need to re-packthe archive to a tar file and then flash it.
     os.system(f'adb reboot download')
     Firmware_Flashing()
     SetupDeviceForUSBCommunication()
