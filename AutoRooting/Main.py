@@ -49,13 +49,6 @@ def Welcome_Screen():
 
     input(f'    [{Colors["Red"]}Continue{Colors["Reset"]}]: press {Colors["Green"]}ENTER{Colors["Reset"]} in order to continue the execution of this program: ')
 
-#Once the Developer options have been enabled the program will check the USB connection trough ADB
-#If the connection cannot be enstablished the problems could be:
-#   - User unplugged USB Cable (Or not, in that case ask user to re-plug in the cable)
-#   - USB Drivers don't work (Need to install them first), so try to re-install them
-
-#Else, use ADB to get device informations. This function is an example on how it should work (The dict should be a class)
-
 def GetPhoneInformations() -> dict[str, str]:
     print(f'{Colors["Green"]}Getting{Colors["Reset"]} device informations...')
     PhoneInformations = {
