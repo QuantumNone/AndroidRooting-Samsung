@@ -7,10 +7,17 @@ from Scripts.Utilities import *
 from bs4 import BeautifulSoup
 
 def GooglePixel_Requirements(Device: object, Phone: classmethod):
+    #TODO: Once improved Adb Drivers installation in Utilities.py, need to edit this file again...
     def Install_GoogleUSBDrivers():
-        pass
+        Install_AdbDrivers()
 
-    def Unlock_Bootloader(): #Should return an availble USB Connection
+    def Unlock_Bootloader() -> None:
+        """
+        This function unlocks phone's bootloader (OEM). 
+        The userhas to manually accept Unlocking.
+    
+            -> Returns an available Adb Connection! 
+        """
         print(f'[{Colors["Red"]}Starting{Colors["Reset"]}] Unlocking process...')
         Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller = Install_GoogleUSBDrivers)
         print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} phone into {Colors["Red"]}Bootloader Mode{Colors["Reset"]}...')
@@ -45,9 +52,19 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
         input(f"\n\tPress {Colors['Green']}ENTER{Colors['Reset']} if you have done all : ")
 
         SetupDeviceForUSBCommunication()
+        Check_AdbConnection(AdbOrFastboot = 'Adb', DriversInstaller = Install_GoogleUSBDrivers)
 
-
-    def Download_Firmware(): #Downloads the firmware into DownloadsFolder\\Firmware and extracts boot.img into Firmware\\Extracted_Files
+    def Download_Firmware() -> None:
+        """
+        This function downloads latest stock firmware into DownloadsFolder\\Firmware 
+        and extracts boot.img into Firmware\\Extracted_Files
+    
+            -> Returns an available Adb Connection! 
+            -> Returns two global variabls : 
+                    'BootImage_Name': The name of the image to patch, because it could be recovery.img, boot.img or init_boot.img
+                    'BootImage_Path': The path where the image to patch is
+        """
+        
         #Build numeber is essential to download the correct current version, else need to update to latest versin possible which require more steps (line 4)
         print(f'{Colors["Green"]}Looking{Colors["Reset"]} for {Device.BuildNumber} Firmware version...'.ljust(150), end = '')
 
@@ -92,14 +109,17 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
                     os.mkdir(DownloadsFolder + 'Firmware\\Extracted_Files')
                 except:
                     pass
-                global BootImage_Path
-                BootImage_Path = 'init_boot.img' if GetFileName_FromZip(Zip_Path = DownloadsFolder + f'Firmware\\{Images_Folder}', FileName = 'init_boot.img') else 'boot.img'
+
+                global BootImage_Name
+                BootImage_Name = 'init_boot.img' if GetFileName_FromZip(Zip_Path = DownloadsFolder + f'Firmware\\{Images_Folder}', FileName = 'init_boot.img') else 'boot.img'
                 ExtractZip(
                     Zip_FileName = f'Firmware\\{Images_Folder}',
-                    SpecificFile = BootImage_Path,
+                    SpecificFile = BootImage_Name,
                     DestinationPath = DownloadsFolder + 'Firmware\\Extracted_Files',
                     HasFolderInside = True
                 )
+                global BootImage_Path
+                BootImage_Path = DownloadsFolder + f'Firmware\\Extracted_Files\\{BootImage_Name}'
 
                 return
         else:
@@ -108,8 +128,21 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
                 Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find any firmware version for {Device.BuildNumber} version!'
             )
 
-    def Firmware_Flashing(Root: bool = False): #Returns An available Adb Connection
-        Check_FastbootConnection()
+    def Firmware_Flashing(Root: bool = False) -> None:
+        """
+        This function flashes latest stock firmware and logs all in Logs\GPFlashing_log.txt file.
+        Once the flashing has been complete the phone won't reboot but, if 'Root' variable is True, it will also flash patched_boot.img file.
+        It firstly check if the device is in fastboot mode!
+        
+            -> Returns an available Adb Connection! 
+        """
+
+        while not Check_FastbootConnection():
+            if 'no devices/emulators found' in str(subprocess.check_output('adb reboot-bootloader', stderr = subprocess.STDOUT, shell = True), encoding='utf-8'):
+                print(f'{Colors["Underline"]}Your device is not in fastboot/bootloader mode{Colors["Reset"]}!')
+                Check_AdbConnection(AdbOrFastboot = 'Adb', DriversInstaller = Install_GoogleUSBDrivers)
+            
+
         print(f'{Colors["Red"]}Starting{Colors["Reset"]} flashing process...')
 
         for file in os.listdir(DownloadsFolder + 'Firmware'):
@@ -117,7 +150,7 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
             Radio_File = file if 'Radio' in file else ''
             Image_Zip = file if file.endswith('.zip') else ''
 
-        with open(f'{os.getcwd()}\\Logs\\Flashing_log.txt', 'r+') as FLog:
+        with open(f'{os.getcwd()}\\Logs\\GPFlashing_log.txt', 'w') as FLog:
             #Flashing bootloader partition
             print(f'{Colors["Red"]}Flashing{Colors["Reset"]} bootloader partition...')
             Bootloader_Flashing = str(subprocess.check_output(f'fastboot flash bootloader {Bootloader_File}', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
@@ -192,8 +225,15 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
                 SetupDeviceForUSBCommunication()
             input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if you have enabled 'USB debugging' : ")
             Check_FastbootConnection()
+            
+            ConfigureMagisk()
 
 #Need to do Patching process : patching init_boot.img or boot.img and rename the patched into the same name of boot.img and replace it into Firmware\\Extracted_Files
 
+    #Process Execution order:
+    Download_Firmware()
+    Patch_Image_File(Device = Device, BootImage_Name = BootImage_Name) #BootImage_Name should be a global variable from Download_Firmware() function
+    Firmware_Flashing(Root = True)
+    ConfigureMagisk()
 
 
