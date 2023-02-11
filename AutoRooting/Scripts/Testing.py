@@ -8,14 +8,21 @@ class Phones:
 
 Device = Phones()
 
-from Utilities import Colors, Download, ExtractZip, Quit, DownloadsFolder, requests, Check_FastbootConnection, subprocess, sleep, GetFileName_FromZip, askUser, SetupDeviceForUSBCommunication
+from Utilities import Colors, Download, ExtractZip, Quit, DownloadsFolder, requests, Check_FastbootConnection, subprocess, sleep, GetFileName_FromZip, askUser, SetupDeviceForUSBCommunication, Patch_Image_File, ConfigureMagisk, Download_Magisk
 import os
 from bs4 import BeautifulSoup
 
 
 
 
-def Download_Firmware(): #Downloads the firmware into DownloadsFolder\\Firmware and extracts boot.img into Firmware\\Extracted_Files
+def Download_Firmware() -> None:
+        """
+        This function downloads latest stock firmware into DownloadsFolder\\Firmware 
+        and extracts boot.img into Firmware\\Extracted_Files
+    
+         -> Returns an available Adb Connection! 
+        """
+        
         #Build numeber is essential to download the correct current version, else need to update to latest versin possible which require more steps (line 4)
         print(f'{Colors["Green"]}Looking{Colors["Reset"]} for {Device.BuildNumber} Firmware version...'.ljust(150), end = '')
 
@@ -60,14 +67,17 @@ def Download_Firmware(): #Downloads the firmware into DownloadsFolder\\Firmware 
                     os.mkdir(DownloadsFolder + 'Firmware\\Extracted_Files')
                 except:
                     pass
-                global BootImage_Path
-                BootImage_Path = 'init_boot.img' if GetFileName_FromZip(Zip_Path = DownloadsFolder + f'Firmware\\{Images_Folder}', FileName = 'init_boot.img') else 'boot.img'
+
+                global BootImage_Name
+                BootImage_Name = 'init_boot.img' if GetFileName_FromZip(Zip_Path = DownloadsFolder + f'Firmware\\{Images_Folder}', FileName = 'init_boot.img') else 'boot.img'
                 ExtractZip(
                     Zip_FileName = f'Firmware\\{Images_Folder}',
-                    SpecificFile = BootImage_Path,
+                    SpecificFile = BootImage_Name,
                     DestinationPath = DownloadsFolder + 'Firmware\\Extracted_Files',
                     HasFolderInside = True
                 )
+                global BootImage_Path
+                BootImage_Path = DownloadsFolder + f'Firmware\\Extracted_Files\\{BootImage_Name}'
 
                 return
         else:
@@ -76,7 +86,14 @@ def Download_Firmware(): #Downloads the firmware into DownloadsFolder\\Firmware 
                 Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find any firmware version for {Device.BuildNumber} version!'
             )
 
-def Firmware_Flashing(Root: bool = False): #Returns An available Adb Connection
+def Firmware_Flashing(Root: bool = False) -> None:
+    """
+    This function flashes latest stock firmware and logs all in Logs\GPFlashing_log.txt file.
+    Once the flashing has been complete the phone won't reboot but, if 'Root' variable is True, it will also flash patched_boot.img file.
+    
+        -> Returns an available Adb Connection! 
+    """
+
     Check_FastbootConnection()
     print(f'{Colors["Red"]}Starting{Colors["Reset"]} flashing process...')
 
@@ -85,7 +102,7 @@ def Firmware_Flashing(Root: bool = False): #Returns An available Adb Connection
         Radio_File = file if 'Radio' in file else ''
         Image_Zip = file if file.endswith('.zip') else ''
 
-    with open(f'{os.getcwd()}\\Logs\\Flashing_log.txt', 'r+') as FLog:
+    with open(f'{os.getcwd()}\\Logs\\GPFlashing_log.txt', 'w') as FLog:
         #Flashing bootloader partition
         print(f'{Colors["Red"]}Flashing{Colors["Reset"]} bootloader partition...')
         Bootloader_Flashing = str(subprocess.check_output(f'fastboot flash bootloader {Bootloader_File}', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
@@ -160,10 +177,27 @@ def Firmware_Flashing(Root: bool = False): #Returns An available Adb Connection
             SetupDeviceForUSBCommunication()
         input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if you have enabled 'USB debugging' : ")
         Check_FastbootConnection()
+        
+        ConfigureMagisk()
 
 #Need to do Patching process : patching init_boot.img or boot.img and rename the patched into the same name of boot.img and replace it into Firmware\\Extracted_Files
-
-Download_Firmware()
+# BootImage_Path = DownloadsFolder + f'Firmware\\Extracted_Files\\init_boot.img'
+# BootImage_Name = 'init_boot.img'
+# Patch_Image_File(Device = Device, BootImage_Name = BootImage_Name)
 # print('Downloading...', end = '\n')
 # print('\rProgress: ...', end = '')
 # # print('\r\b\rDone!')
+
+
+
+
+
+print(f'''
+    
+1. {Colors["Red"]}Now{Colors["Reset"]} Magisk Manager will ask you, throught a pop-up, to install {Colors["Green"]}Additional Setup{Colors["Reset"]} like this :
+                        {Colors["White_Highlight"]}{Colors["Grey"]} Requires Additional Setup {Colors["Reset"]}
+            {Colors["White_Highlight"]} Your device needs additional setup for Magisk to {Colors["Reset"]} 
+            {Colors["White_Highlight"]} work properly. Do you want to proceed and reboot? {Colors["Reset"]}
+            
+                                            {Colors["Cyan"]} CANCEL {Colors["Reset"]}      {Colors["Cyan"]} OK {Colors["Reset"]}
+    ''')
