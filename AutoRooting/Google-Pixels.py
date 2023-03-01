@@ -8,8 +8,6 @@ from bs4 import BeautifulSoup
 
 def GooglePixel_Requirements(Device: object, Phone: classmethod):
     #TODO: Once improved Adb Drivers installation in Utilities.py, need to edit this file again...
-    def Install_GoogleUSBDrivers():
-        Install_AdbDrivers()
 
     def Unlock_Bootloader() -> None:
         """
@@ -19,12 +17,12 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
             -> Returns an available Adb Connection! 
         """
         print(f'[{Colors["Red"]}Starting{Colors["Reset"]}] Unlocking process...')
-        Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller = Install_GoogleUSBDrivers)
+        Check_AdbConnection(AdbOrFastboot='Adb')
         print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} phone into {Colors["Red"]}Bootloader Mode{Colors["Reset"]}...')
         os.system('adb reboot bootloader')
         sleep(6)    #Normal reboot time
         while 'Checking for fastboot connection':
-            if Check_AdbConnection(AdbOrFastboot='Fastboot', DriversInstaller = Install_GoogleUSBDrivers):
+            if Check_AdbConnection(AdbOrFastboot='Fastboot'):
                 return
             sleep(3)
         
@@ -42,7 +40,7 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
                 Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} unlock this Google Pixel phone!'
             )
 
-        print(f'{Colors["Red"]}Now{Colors["Reset"]} follow the instructions shown on your phone\'s screen to {Colors["Red"]}confirm the unlocking{Colors["Reset"]} of the bootloader (Click volume up key to choose "Unlock the bootloader" and confirm)!')
+        print(f'{Colors["Red"]}Now{Colors["Reset"]} follow the instructions shown on your phone\'s screen to {Colors["Red"]}confirm the unlocking{Colors["Reset"]} of the bootloader (Click volume up key to choose "{Colors["Red"]}Unlock the bootloader{Colors["Reset"]}" and confirm)!')
         input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to confirm that you confirmed Unlocking (Now the phone should reboot) : ")
         
         print(f'\nYour phone should now boot successfully in {Colors["Cyan"]}Welcome Screen{Colors["Reset"]}!')
@@ -52,7 +50,7 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
         input(f"\n\tPress {Colors['Green']}ENTER{Colors['Reset']} if you have done all : ")
 
         SetupDeviceForUSBCommunication()
-        Check_AdbConnection(AdbOrFastboot = 'Adb', DriversInstaller = Install_GoogleUSBDrivers)
+        Check_AdbConnection(AdbOrFastboot = 'Adb')
 
     def Download_Firmware() -> None:
         """
@@ -78,7 +76,7 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
         if response.status_code != 200:
             Quit(
                 ExceptionName = SystemExit(),
-                Message = r'\nCannot open a HTTP request on https://developers.google.com/android/ota for unknown reason!'
+                Message = rf'\nCannot open a HTTP request on {URL} for unknown reason!'
             )
         # Parsing del HTML with BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -90,7 +88,7 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
                 link = str(line).split('href="')[1].split('">')[0].strip() # https://dl.google.com/dl/android/aosp/cheetah-td1a.220804.009.a2-factory-8e7393e1.zip
                 # Only '.zip' links can be added to the list, they are direct download link
             except:
-                pass
+                continue
 
             if Device.BuildNumber.lower() in link and Device.Product.lower() in link:
                 print(f'[{Colors["Green"]}Found{Colors["Reset"]}!]')
@@ -140,7 +138,7 @@ def GooglePixel_Requirements(Device: object, Phone: classmethod):
         while not Check_FastbootConnection():
             if 'no devices/emulators found' in str(subprocess.check_output('adb reboot-bootloader', stderr = subprocess.STDOUT, shell = True), encoding='utf-8'):
                 print(f'{Colors["Underline"]}Your device is not in fastboot/bootloader mode{Colors["Reset"]}!')
-                Check_AdbConnection(AdbOrFastboot = 'Adb', DriversInstaller = Install_GoogleUSBDrivers)
+                Check_AdbConnection(AdbOrFastboot = 'Adb')
             
 
         print(f'{Colors["Red"]}Starting{Colors["Reset"]} flashing process...')
