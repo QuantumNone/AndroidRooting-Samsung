@@ -2,202 +2,122 @@
 
 class Phones:
     def __init__(self) -> None:
+        self.Model = 'OnePlus 9 Pro'
         self.CPU_Architecture = 'arm64-v8a'
-        self.BuildNumber = 'TD1A.220804.009.A2'
+        self.BuildNumber = '11.2.10.10.LE15DA'
         self.Product = 'panther'
 
 Device = Phones()
 
-from Utilities import Colors, Download, ExtractZip, Quit, DownloadsFolder, requests, Check_FastbootConnection, subprocess, sleep, GetFileName_FromZip, askUser, SetupDeviceForUSBCommunication, Patch_Image_File, ConfigureMagisk, Download_Magisk
-import os
-from bs4 import BeautifulSoup
+from Utilities import *
+# Pip_Installer(Package = 'webdriver-manager selenium pandas', Package_Name = 'webdriver-manager, selenium and pandas')
+from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
+
 
 
 
 
 def Download_Firmware() -> None:
-        """
-        This function downloads latest stock firmware into DownloadsFolder\\Firmware 
-        and extracts boot.img into Firmware\\Extracted_Files
+    """
+    This function downloads latest stock firmware into DownloadsFolder\\Firmware 
+    and extracts boot.img into Firmware\\Extracted_Files
+
+        -> Returns an available Adb Connection! 
+        -> Returns two global variabls : 
+                'BootImage_Name': The name of the image to patch, because it could be recovery.img, boot.img or init_boot.img
+                'BootImage_Path': The path where the image to patch is
+    """
     
-         -> Returns an available Adb Connection! 
-        """
-        
-        #Build numeber is essential to download the correct current version, else need to update to latest versin possible which require more steps (line 4)
-        print(f'{Colors["Green"]}Looking{Colors["Reset"]} for {Device.BuildNumber} Firmware version...'.ljust(150), end = '')
+    def Get_Link() -> str:
+        URL = "https://service.oneplus.com/global/search/search-detail?id=2096329&articleIndex=1"
+        print(f'{Colors["Green"]}Opening{Colors["Reset"]} {URL} website to get firmware download link...')
+        print(f'{Colors["Green"]}_________________________________________________________________________________________________{Colors["Reset"]}')
 
-        URL = "https://developers.google.com/android/images"
-        session = requests.session()
-        session.cookies.set("devsite_wall_acks", "nexus-image-tos") #Cookie added to 'bypass' Google TOS. Need to work on this if it's accepted by google or not...
-        
-        response = session.get(URL)
-
-        
-        if response.status_code != 200:
-            Quit(
-                ExceptionName = SystemExit(),
-                Message = r'\nCannot open a HTTP request on https://developers.google.com/android/ota for unknown reason!'
-            )
-        # Parsing del HTML with BeautifulSoup
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Search for all tags 'a'
-        for line in soup.find_all('a'):
-            try:
-                # Getting link from the tag if it's present, else do not add anything
-                link = str(line).split('href="')[1].split('">')[0].strip() # https://dl.google.com/dl/android/aosp/cheetah-td1a.220804.009.a2-factory-8e7393e1.zip
-                # Only '.zip' links can be added to the list, they are direct download link
-            except:
-                pass
-
-            if Device.BuildNumber.lower() in link and Device.Product.lower() in link:
-                print(f'[{Colors["Green"]}Found{Colors["Reset"]}!]')
-                Download(
-                    URLink = link,
-                    FileName = 'Firmware.zip'
-                )
-                ExtractZip(
-                    Zip_FileName = 'Firmware.zip',
-                    DestinationPath = DownloadsFolder,
-                    HasFolderInside = True,
-                    Rename = True
-                )
-                Images_Folder = [Image_Zip for Image_Zip in os.listdir(DownloadsFolder + 'Firmware\\') if Image_Zip.endswith('.zip')][0]
-                try:
-                    os.mkdir(DownloadsFolder + 'Firmware\\Extracted_Files')
-                except:
-                    pass
-
-                global BootImage_Name
-                BootImage_Name = 'init_boot.img' if GetFileName_FromZip(Zip_Path = DownloadsFolder + f'Firmware\\{Images_Folder}', FileName = 'init_boot.img') else 'boot.img'
-                ExtractZip(
-                    Zip_FileName = f'Firmware\\{Images_Folder}',
-                    SpecificFile = BootImage_Name,
-                    DestinationPath = DownloadsFolder + 'Firmware\\Extracted_Files',
-                    HasFolderInside = True
-                )
-                global BootImage_Path
-                BootImage_Path = DownloadsFolder + f'Firmware\\Extracted_Files\\{BootImage_Name}'
-
-                return
+        if checkTool(name = 'msedge.exe', path = "C:\Program Files (x86)\Microsoft\Edge\Application\\"):
+            Edge_Options = webdriver.EdgeOptions()
+            Edge_Options.add_argument('--start-minimized')
+            Edge_Options.add_argument('--log-level=3')
+            browser = webdriver.Edge(options = Edge_Options)
+        elif checkTool(name = 'chrome.exe', path = 'C:\Program Files (x86)\Google\Chrome\Application\\'):
+            Chrome_Options = webdriver.ChromeOptions()
+            Chrome_Options.add_argument('--start-minimized')
+            Chrome_Options.add_argument('--log-level=3')
+            browser = webdriver.Chrome(options = Chrome_Options)
+        elif checkTool(name = 'firefox.exe', path = 'C:\Program Files\Mozilla Firefox\\'):
+            Firefox_Options = webdriver.FirefoxOptions()
+            Firefox_Options.add_argument('--headless')
+            Firefox_Options.add_argument('--log-level=3')
+            browser = webdriver.Firefox(options = Firefox_Options)
         else:
             Quit(
-                ExceptionName = SystemExit(),
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find any firmware version for {Device.BuildNumber} version!'
+                ExceptionName = SystemExit,
+                Message = f'{Colors["Red"]}Cannot find{Colors["Reset"]} any browser on this computer!\nMake sure that one of these browsers is installed : {Colors["Green"]}Microsoft Edge{Colors["Reset"]}, {Colors["Green"]}Chrome{Colors["Reset"]} or {Colors["Green"]}Firefox{Colors["Reset"]}'
+            )
+        #Safari browser if mac
+        browser.get(URL)
+        delay = 5  # seconds
+        selector = ".search-detail--wrapper_content table"
+        try:
+            table = WebDriverWait(browser, delay).until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
+            table_html = table.get_attribute("outerHTML")
+            for td in table_html.split('\n'):
+                try:
+                    td: str = td.split('href="')[1].split('" target')[0]
+                    if (Device.Model).lower().replace(' ', '') in td.lower():
+                        link = td
+                        browser.close() # Takes time to close the browser 3-5 seconds
+                        return link.strip()
+                except:
+                    pass
+            Quit(
+                ExceptionName = SystemExit,
+                Message = f'{Colors["Red"]}Cannot find{Colors["Reset"]} any firmware for {Device.Model}!'
+            )
+        except TimeoutException:
+            browser.close()
+            Quit(
+                ExceptionName = SystemExit,
+                Message = f'TimeoutException!\nCannot parse {URL} webpage!'
             )
 
-def Firmware_Flashing(Root: bool = False) -> None:
-    """
-    This function flashes latest stock firmware and logs all in Logs\GPFlashing_log.txt file.
-    Once the flashing has been complete the phone won't reboot but, if 'Root' variable is True, it will also flash patched_boot.img file.
     
-        -> Returns an available Adb Connection! 
-    """
+    print(f'\n{Colors["Green"]}Looking{Colors["Reset"]} for {Device.Model} Firmware version...')
+    link = Get_Link()
+    print(f'{Colors["Green"]}_________________________________________________________________________________________________{Colors["Reset"]}')
+    print(f'\n{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}Server{Colors["Reset"]}]: {link}')
+    Download(
+        URLink = link,
+        FileName = 'Firmware.zip'
+    )
+    ExtractZip(
+        Zip_FileName = 'Firmware.zip',
+        DestinationPath = DownloadsFolder,
+        HasFolderInside = False,
+        SpecificFile = 'payload.bin'
+    )
 
-    Check_FastbootConnection()
-    print(f'{Colors["Red"]}Starting{Colors["Reset"]} flashing process...')
+    Download(
+        URLink = 'https://codeload.github.com/QuantumNone/Payload_Dumper/zip/refs/heads/master',
+        FileName = 'Payload-Dumper.zip'
+    )
+    ExtractZip(
+        Zip_FileName = 'Payload-Dumper.zip',
+        DestinationPath = ToolsFolder,
+        HasFolderInside = True
+    )
 
-    for file in os.listdir(DownloadsFolder + 'Firmware'):
-        Bootloader_File = file if 'bootloader' in file else ''
-        Radio_File = file if 'Radio' in file else ''
-        Image_Zip = file if file.endswith('.zip') else ''
-
-    with open(f'{os.getcwd()}\\Logs\\GPFlashing_log.txt', 'w') as FLog:
-        #Flashing bootloader partition
-        print(f'{Colors["Red"]}Flashing{Colors["Reset"]} bootloader partition...')
-        Bootloader_Flashing = str(subprocess.check_output(f'fastboot flash bootloader {Bootloader_File}', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
-        FLog.write(f'Command: fastboot flash bootloader {Bootloader_File}')
-        FLog.write(f'Output: \n{Bootloader_Flashing}')
-        if 'FAILED' in Bootloader_Flashing:
-            Quit(
-                ExceptionName = SystemExit(),
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} flash bootloader partition for unknown reason!\n{Colors["Red"]}Something went wrong{Colors["Reset"]} on flashing it!\nYour phone might be {Colors["Red"]}soft bricked{Colors["Reset"]}!\nPlease, {Colors["Red"]}contact{Colors["Reset"]} support on github!'
-            )
-        
-        print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} into bootloader...')
-        FLog.write('Rebooting: fastboot reboot-bootloader')
-        subprocess.check_output('fastboot reboot-bootloader', stderr = subprocess.STDOUT, shell = True)
-        sleep(6)
-        
-        #Flashing radio partition
-        print(f'{Colors["Red"]}Flashing{Colors["Reset"]} radio partition...')
-        Radio_Flashing = str(subprocess.check_output(f'fastboot flash radio {Radio_File}', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
-        FLog.write(f'Command: fastboot flash radio {Radio_File}')
-        FLog.write(f'Output: \n{Radio_Flashing}')
-        if 'FAILED' in Radio_Flashing:
-            Quit(
-                ExceptionName = SystemExit(),
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} flash radio partition for unknown reason!\n{Colors["Red"]}Something went wrong{Colors["Reset"]} on flashing it!\nYour phone might be {Colors["Red"]}soft bricked{Colors["Reset"]}!\nPlease, {Colors["Red"]}contact{Colors["Reset"]} support on github!'
-            )
-        
-        print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} into bootloader...')
-        FLog.write('Rebooting: fastboot reboot-bootloader')
-        subprocess.check_output('fastboot reboot-bootloader', stderr = subprocess.STDOUT, shell = True)
-        sleep(6)
-        
-        #Flashing All Images partitions
-        print(f'{Colors["Red"]}Flashing{Colors["Reset"]} firmware partitions...')
-        Image_Flashing = str(subprocess.check_output(f'fastboot update {Image_Zip}', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
-        FLog.write(f'Command: fastboot update {Image_Zip}')
-        FLog.write(f'Output: \n{Image_Flashing}')
-        if 'FAILED' in Image_Flashing:
-            Quit(
-                ExceptionName = SystemExit(),
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} flash radio partition for unknown reason!\n{Colors["Red"]}Something went wrong{Colors["Reset"]} on flashing it!\nYour phone might be {Colors["Red"]}soft bricked{Colors["Reset"]}!\nPlease, {Colors["Red"]}contact{Colors["Reset"]} support on github!'
-            )
-
-        print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} into bootloader...')
-        FLog.write('Rebooting: fastboot reboot-bootloader')
-        subprocess.check_output('fastboot reboot-bootloader', stderr = subprocess.STDOUT, shell = True)
-        sleep(6)
-        
-        #Flashing patched_boot.img partition
-        if Root:
-            Patched_ImagePath = DownloadsFolder + f'Firmware\\Extracted_Files\\{BootImage_Path}'
-            print(f'{Colors["Red"]}Flashing{Colors["Reset"]} {BootImage_Path} {BootImage_Path} partition with the patched_boot.img file...')
-            Patch_Flashing = str(subprocess.check_output(f'fastboot flash {Patched_ImagePath[:-4]} {Patched_ImagePath}', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
-            FLog.write(f'Command: fastboot flash {Patched_ImagePath[:-4]} {Patched_ImagePath}')
-            FLog.write(f'Output: \n{Patch_Flashing}')
-            if 'FAILED' in Patch_Flashing:
-                Quit(
-                    ExceptionName = SystemExit(),
-                    Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} flash patched  partition for unknown reason!\n{Colors["Red"]}Something went wrong{Colors["Reset"]} on flashing it!\nYour phone might be {Colors["Red"]}soft bricked{Colors["Reset"]}!\nPlease, {Colors["Red"]}contact{Colors["Reset"]} support on github!'
-                )
-        
-        print(f'\t{Colors["Green"]}Successfully{Colors["Reset"]} flashed stock partition!')
-        FLog.write(f'Successfully flashed stock partition!')
-        print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} phone normally...\nIt should take 1-3 minutes to boot.')
-        FLog.write('Rebooting: fastboot reboot')
-        subprocess.check_output('fastboot reboot', stderr = subprocess.STDOUT, shell = True)
-        sleep(6)
-
-        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if your phone has been rebooted and it\'s in the home screen: ")
-        print(f'{Colors["Red"]}Now{Colors["Reset"]} enable again "USB debugging" option in Developer options')
-        if askUser(f"{Colors['Green']}Forgot{Colors['Reset']} how to enable 'USB debugging'?"):
-            SetupDeviceForUSBCommunication()
-        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if you have enabled 'USB debugging' : ")
-        Check_FastbootConnection()
-        
-        ConfigureMagisk()
-
-#Need to do Patching process : patching init_boot.img or boot.img and rename the patched into the same name of boot.img and replace it into Firmware\\Extracted_Files
-# BootImage_Path = DownloadsFolder + f'Firmware\\Extracted_Files\\init_boot.img'
-# BootImage_Name = 'init_boot.img'
-# Patch_Image_File(Device = Device, BootImage_Name = BootImage_Name)
-# print('Downloading...', end = '\n')
-# print('\rProgress: ...', end = '')
-# # print('\r\b\rDone!')
-
-
-
-
-
-print(f'''
     
-1. {Colors["Red"]}Now{Colors["Reset"]} Magisk Manager will ask you, throught a pop-up, to install {Colors["Green"]}Additional Setup{Colors["Reset"]} like this :
-                        {Colors["White_Highlight"]}{Colors["Grey"]} Requires Additional Setup {Colors["Reset"]}
-            {Colors["White_Highlight"]} Your device needs additional setup for Magisk to {Colors["Reset"]} 
-            {Colors["White_Highlight"]} work properly. Do you want to proceed and reboot? {Colors["Reset"]}
-            
-                                            {Colors["Cyan"]} CANCEL {Colors["Reset"]}      {Colors["Cyan"]} OK {Colors["Reset"]}
-    ''')
+    Pip_Installer(Package = 'protobuf==3.20.1')
+    Pip_Installer(Package = 'six')
+    Pip_Installer(Package = 'bsdiff4')
+
+    print(f'\n{Colors["Green"]}Extracting{Colors["Reset"]} Firmware images from payload.bin : \n')
+    os.system(f'{sys.executable} {ToolsFolder}payload_dumper-master\\payload_dumper.py {DownloadsFolder}Firmware\\payload.bin --out {DownloadsFolder}Firmware\\Images')
+    print(f'{Colors["Reset"]}{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}Done{Colors["Reset"]}!]\n')
+
+
+# Download_Firmware()
