@@ -5,8 +5,6 @@
 
 import os, platform, ctypes, shutil, urllib.request, zipfile, subprocess, requests, sys, tarfile
 from tqdm import tqdm
-from time import sleep
-sleepDelay = 2
 
 # Colors for String formatting :
 Colors: dict[str, str] = {
@@ -53,20 +51,30 @@ def find_files(root_dir: str, extension: str, file_name: str, NoExtension: bool 
     return [root_dir + f for f in os.listdir(root_dir) if (f.startswith(file_name) and (NoExtension or f.endswith(f'.{extension}')))]
 
 def CheckFile(Filename: str, Directory = f'{os.getcwd()}\\') -> bool:
-    return os.path.isfile(f'{Directory}{Filename}')
+    return os.path.isfile(Directory + Filename)
 
 # Checks if whatever executable provided (as string) exists in $PATH
-def checkTool(name: str) -> bool:
+def checkTool(name: str, path: str = '') -> bool:
+    if path:
+        return CheckFile(Filename=name, Directory=path)
     return shutil.which(name) is not None
 
 def Pip_Installer(Package: str, Package_Name: str = '') -> None:
+    if not Package_Name:
+        Package_Name = Package
+    print(f'{Colors["Green"]}Installing{Colors["Reset"]} {Package_Name} package...'.ljust(150), end = '')
     if not Package_Name: 
         Package_Name = Package
     try:
         #sys.executable returns python version
         subprocess.run([sys.executable, '-m', 'pip', 'install', Package, '-q'], check=True)
     except subprocess.CalledProcessError as ex:
-        Quit(ExceptionName = ex(), Message = f'An {Colors["Red"]}Unknown Error{Colors["Reset"]} came out while trying to download {Package_Name} : {Package}')
+        Quit(
+            ExceptionName = ex,
+            Message = f'An {Colors["Red"]}Unknown Error{Colors["Reset"]} came out while trying to download {Package_Name}'
+        )
+    print(f'[{Colors["Green"]}Done{Colors["Reset"]}]!')
+    
 
 
 def Extract_tar(file_path: str, extract_path: str) -> None:
@@ -167,7 +175,7 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None: #Note that s
     Download(URLink = 'google.com/DownloadFile.zip', FileName = 'File1.zip')
     """
     try:
-        if os.path.getsize(DownloadsFolder + FileName) <= 1_000_000:
+        if os.path.getsize(DownloadsFolder + FileName) <= 5_000:
             os.remove(DownloadsFolder + FileName)
 
         if FileName in os.listdir(DownloadsFolder):
@@ -178,7 +186,7 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None: #Note that s
     DestinationPath = DownloadsFolder + FileName
     try:
 
-        print(f"{Colors['Green']}\nDownloading{Colors['Reset']} {FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
+        print(f"\n{Colors['Green']}Downloading{Colors['Reset']} {FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
         response = requests.get(URLink, stream=True)
         total_size = int(response.headers.get('content-length', 0))
         block_size = 1024 #1 Kibibyte
@@ -190,7 +198,7 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None: #Note that s
                 file.write(data)
 
         progress.close()
-        print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]")
+        print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]\n")
 
     except requests.exceptions.ConnectionError:  # If the download has been interrupted for Connection Lost or the connection was Forcibly closed
         print(f"{Colors['Red']}Failed{Colors['Reset']} to download {FileName}...")
@@ -211,17 +219,16 @@ def Download(URLink: str, FileName: str, retries: int = 2) -> None: #Note that s
     except:
         Quit(ExceptionName = DownloadFailedError(), Message = f"{FileName} failed to be downloaded for some reason.")
 
-    
     try:
-        if os.path.getsize(DownloadsFolder + FileName) <= 1_000_000:
+        if os.path.getsize(DownloadsFolder + FileName) <= 5_000:
             Quit(
                 ExceptionName = SystemExit(),
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} download {FileName} for unknown reason!\nMaybe the download link is corrupted!'
+                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} download {FileName} for unknown reason!\nThe file seems {Colors["Red"]}corrupted{Colors["Reset"]}!'
             )
     except Exception as ex:
         Quit(
             ExceptionName = ex,
-            Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find {FileName} file for unknown reason!\nMaybe the file package is corrupted!'
+            Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find {FileName} file for unknown reason!\nMaybe the file package is {Colors["Red"]}corrupted{Colors["Reset"]}!'
         )
 
 
@@ -230,32 +237,65 @@ def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool, R
 
     ListDir_Before = set(os.listdir(DestinationPath))
     try:
-        if os.path.getsize(DestinationPath + Zip_FileName[:-4]) <= 1_000_000: #Checks if folder's size is 0Kb, if so remove it and re-extract the zip file
+        if os.path.getsize(DestinationPath + Zip_FileName[:-4]) <= 5_000: #Checks if folder's size is 5Kb, if so remove it and re-extract the zip file
             os.remove(ToolsFolder + Zip_FileName[:-4])
     except:
         pass
 
-    if not HasFolderInside:
-        DestinationPath += Zip_FileName[:-4]
+    if SpecificFile:
+        try:
+            if os.path.getsize(DestinationPath + SpecificFile) <= 5_000:
+                os.remove(ToolsFolder + SpecificFile)
+                return
+        except:
+            pass
     
     Zip_Path = DownloadsFolder + Zip_FileName
     
-    if Zip_FileName[:-4] in os.listdir(ToolsFolder) or Zip_FileName[:-4] in os.listdir(DownloadsFolder):
-        return
+    if Zip_FileName[:-4] in os.listdir(ToolsFolder) or Zip_FileName[:-4] in os.listdir(DestinationPath):
+        try:
+            if os.path.getsize(DownloadsFolder + Zip_FileName[:-4]) >= 5_000: #Checks if folder's size is 5Kb, if so remove it and re-extract the zip file
+                return
+        except:
+            pass
+        try:
+            if os.path.getsize(ToolsFolder + Zip_FileName[:-4]) >= 5_000: #Checks if folder's size is 5Kb, if so remove it and re-extract the zip file
+                return
+        except:
+            pass
 
+    if not HasFolderInside:
+        DestinationPath += Zip_FileName[:-4]
+        
     print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
     
     with zipfile.ZipFile(Zip_Path, "r") as zip_ref:
         try:
-            if SpecificFile != '':
-                zip_ref.extract(member = SpecificFile, path = DestinationPath, pwd = None)
+            if SpecificFile:
+                zip_file = zipfile.ZipFile(Zip_Path)
+                file_size = zip_file.getinfo(SpecificFile).file_size
+                with tqdm(total=file_size, unit='B', unit_scale=True, desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}') as pbar:
+                    with zip_file.open(SpecificFile) as zip_file_obj, open(DestinationPath + '\\' + SpecificFile, 'wb') as out_file:
+                        while True:
+                            data = zip_file_obj.read(4096)
+                            if not data:
+                                break
+                            out_file.write(data)
+                            pbar.update(len(data))
+                # zip_ref.extract(member = SpecificFile, path = DestinationPath, pwd = None)
             else:
                 zip_ref.extractall(path = DestinationPath, pwd = None, members = tqdm(zip_ref.infolist(), unit='MB', desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'))
 
         except zipfile.error as ex:
-            Quit(ExceptionName = ex(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!')
+            Quit(
+                ExceptionName = ex, 
+                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!'
+            )
         except Exception as ex:
-            Quit(ExceptionName = ex(), Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName} for some reason!')
+            Quit(
+                ExceptionName = ex, 
+                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName} for unknown reasons!'
+            )
 
 
     ListDir_After = set(os.listdir(DestinationPath))
@@ -271,11 +311,8 @@ def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool, R
             os.rmdir(DownloadsFolder + Extracted_FolderName)
         except:
             pass
-        print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]")
-        # return Extracted_FolderName + '.zip'
-        
 
-    print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]")
+    print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]\n")
     
 
 def GetFileName_FromZip(Zip_Path: str, FileName) -> bool:
@@ -289,6 +326,29 @@ def GetFileName_FromZip(Zip_Path: str, FileName) -> bool:
         Quit(ExceptionName = ex, Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} find {FileName} file!')
 
 
+def Install_USBDrivers(Model: str, URL: str, Exe_File: str, isZip: bool, HasFolderIn: bool = False) -> None:
+    print(f'{Colors["Green"]}Installing{Colors["Reset"]} {Model} {Colors["Green"]}USB drivers{Colors["Reset"]}...')
+    Download(
+        URLink = URL,
+        FileName = f'{Model}Drivers.zip'
+    )
+    if isZip:
+        ExtractZip(
+            Zip_FileName = f'{Model}Drivers.zip',
+            DestinationPath = ToolsFolder,
+            HasFolderInside = HasFolderIn
+        )
+        
+    print(f'\n{Colors["Red"]}Executing{Colors["Reset"]} USB driver installer...')
+    print(f'\n{Colors["Red"]}Please{Colors["Reset"]} follow the {Colors["Red"]}instructions{Colors["Reset"]} given by the installer!')
+
+    if isZip:
+        os.startfile(f'{ToolsFolder}{Model}Drivers\\{Exe_File}')
+    else:
+        os.startfile(ToolsFolder + Exe_File)
+
+    print(f'{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}Installation Completed{Colors["Reset"]}!]')
+    
 
 # The user has to follow these steps in order to be able to use Adb
 def SetupDeviceForUSBCommunication():
@@ -379,8 +439,8 @@ def Install_AdbDrivers():
         print(f'\t[{Colors["Red"]}{Information}{Colors["Reset"]}]:'.ljust(20), f'{Colors["Green"]}{Info}{Colors["Reset"]}')
 
 
-def Check_AdbConnection(AdbOrFastboot: str = 'Adb', DriversInstaller: function = False, Retries: int = 2) -> None:
-    print(f'{Colors["Green"]}Checking{Colors["Reset"]} {AdbOrFastboot} Connection...'.ljust(150), end = '')
+def Check_AdbConnection(AdbOrFastboot: str = 'Adb', DriversInstaller: function = Install_AdbDrivers, Retries: int = 4) -> None:
+    print(f'\n\n{Colors["Green"]}Checking{Colors["Reset"]} {AdbOrFastboot} Connection...'.ljust(150), end = '')
     try:
         AdbDevices_output = subprocess.check_output(f"{AdbOrFastboot} devices", stderr = subprocess.STDOUT, shell = True, encoding = 'utf-8').strip()
         if not AdbDevices_output[-6:] == 'device':
@@ -395,7 +455,7 @@ def Check_AdbConnection(AdbOrFastboot: str = 'Adb', DriversInstaller: function =
             elif Retries == 1:
                 if DriverInstaller:
                     DriversInstaller()
-            elif AdbOrFastboot.lower() == 'adb':
+            if Retries == 3 and AdbOrFastboot.lower() == 'adb':
                 print(
                 f'''
             {Colors["Red"]}\nCannot determinate{Colors["Reset"]} USB Connection!
@@ -410,7 +470,7 @@ def Check_AdbConnection(AdbOrFastboot: str = 'Adb', DriversInstaller: function =
 
             input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
             Check_AdbConnection(AdbOrFastboot, DriversInstaller, Retries - 1)
-        
+        #TODO: Improve this process. test it on some machines
         else:
             return True
 
@@ -422,7 +482,7 @@ def Check_AdbConnection(AdbOrFastboot: str = 'Adb', DriversInstaller: function =
     This could be because Adb&Fastboot or USB Drivers are not correctly installed...'''
         )
 
-    print(f'[{Colors["Green"]}Connected{Colors["Reset"]}!]')
+    print(f'[{Colors["Green"]}Connected{Colors["Reset"]}!]\n')
     
     
 def Check_FastbootConnection() -> bool: #TODO: Work on this function once Samsung setup is finished
@@ -601,6 +661,7 @@ def Patch_Image_File(Device: object, BootImage_Name: str = 'boot.img') -> None: 
         HasFolderInside = False
         )
     
+    Check_AdbConnection()
     print(f'\n\n\t[Now it\'s time to patch {Colors["Green"]}Firmware Binaries{Colors["Reset"]} in order to root your device!]\n')
     OutFolder = f'/data/local/tmp/{Device.CPU_Architecture}/' #Maybe check if every device has this path, maybe not tmp folder. Will adb create this folder in case it doesn't exists?
     FilePath = ToolsFolder + 'MagiskBinaries'
