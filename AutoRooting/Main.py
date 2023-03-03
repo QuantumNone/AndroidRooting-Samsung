@@ -112,7 +112,7 @@ class Phone:
                 Message = 'Phone\'s battery level too low.\nCharge it up to 30% !'
             )
 
-        if int(Device.AndroidVersion[0]) < 9:
+        if int(Device.AndroidVersion[0]) < 9: #Not for Oneplus devices, they just have boot.img instead of payload.bin. So rooting is easy.
             Quit(
                 ExceptionName = SystemExit(),
                 Message = f'Your device is running on Android V{Device.AndroidVersion}, which is unsupported!\n{Colors["Green"]}Only{Colors["Reset"]} Android Version >= 9 is supported!'
