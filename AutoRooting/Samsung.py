@@ -7,7 +7,7 @@
 
 from Scripts.Utilities import *
 
-def Samsung_Requirements(Device: object, Phone: classmethod):
+def Samsung_Requirements(Device: object):
     def Install_SamsungUSBDrivers() -> None:
         Install_USBDrivers(
             Model = 'Samsung',
