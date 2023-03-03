@@ -6,7 +6,7 @@
 from Scripts.Utilities import *
 from bs4 import BeautifulSoup
 
-def GooglePixel_Requirements(Device: object, Phone: classmethod):
+def GooglePixel_Requirements(Device: object):
     #TODO: Once improved Adb Drivers installation in Utilities.py, need to edit this file again...
 
     def Unlock_Bootloader() -> None:
