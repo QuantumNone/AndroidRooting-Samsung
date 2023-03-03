@@ -1,34 +1,20 @@
 #Copyright (C) <2023> by <Quantum>
 
+#TODO: Check which samsung cannot be unlocked, such as US version.
+#US and Canada
+# Factory unlocked ones should also be affected
+#Before starting make sure any google account has been removeds
+
 from Scripts.Utilities import *
 
-def Samsung_Requirements(Device: object, Phone: classmethod):
-    def Install_SamsungUSBDrivers(InstallationStatus: bool = True) -> None:
-        Download(
-            URLink = "https://developer.samsung.com/sdp/file/2ad30860-0932-44e3-bf63-765a5cfa1010",
-            FileName = "SamsungUSB-installer.exe"
+def Samsung_Requirements(Device: object):
+    def Install_SamsungUSBDrivers() -> None:
+        Install_USBDrivers(
+            Model = 'Samsung',
+            URL = 'https://developer.samsung.com/sdp/file/2ad30860-0932-44e3-bf63-765a5cfa1010',
+            isZip = False,
+            Exe_File = 'SamsungUSB-installer.exe'
         )
-
-        #Let's not reboot the computer and try to check if the USB Communication works, if not then the pc will require reboot (Or Windows Driver signature offline)
-        print(
-            f'Please, follow the instructions that the installer shows!'
-        )
-        os.startfile(f'{DownloadsFolder}SamsungUSB-installer.exe')
-        print('Installation Completed!')
-
-        #HAVE TO WORK ON THAT
-        if not InstallationStatus: #This can be converted into a function like : checkAdbConnection() (If not connected, check USB drivers) 
-            print(
-                f'''
-                The USB communication cannot be enstablished!
-                Try to reboot your computer or try to {Colors["Red"]}disable{Colors["Reset"]} Windows Driver Signature Verification : 
-                \t[{Colors["Blue"]}https://answers.microsoft.com/en-us/windows/forum/all/permanent-disable-driver-signature-verification/009c3498-bef8-4564-bb52-1d05812506e0{Colors["Reset"]}]'''
-            )
-            
-            Quit(
-                ExceptionName = SystemExit(),
-                Message = f'{Colors["Red"]}Cannot Install Correctly{Colors["Reset"]} USB Drivers!'
-            )
 
     def Unlock_Bootloader() -> None: #SHOULD RETURN AN AVAILABLE USB CONNECTION
         print(f'''\n
@@ -85,7 +71,7 @@ def Samsung_Requirements(Device: object, Phone: classmethod):
         
             
         Download(
-            URLink = "https://download1076.mediafire.com/ha3x6kwdi36g/zyge4l2ifk9nxk6/Heimdall.zip",
+            URLink = "https://download1076.mediafire.com/ha3x6kwdi36g/zyge4l2ifk9nxk6/Heimdall.zip", #TODO: Change Download link!
             FileName = "Heimdall.zip"
         )
         
@@ -305,7 +291,6 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
         
         Download_Status('New Download')
         print(f'Firmware has been downloaded correctly!')
-        sleep(1)
         
         ExtractZip(
             Zip_FileName = 'Firmware.zip',
@@ -316,7 +301,12 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
         if askUser(f'Do you want to delete Firmware.zip to free up disk space in your pc [{Colors["Green"]}Recommended{Colors["Reset"]}] ?'):
             os.remove(f'{DownloadsFolder}Firmware.zip')
 
-    def Firmware_Unpacking() -> None: #Returns a created folder "Extracted_Files" -> Downloads/Firmware/Extracted_Files
+    def Firmware_Unpacking() -> None:
+        """
+        Returns a created folder "Extracted_Files" -> Downloads/Firmware/Extracted_Files
+        Unpacks all md5 files (BL, AP, CP and CSC).
+        Unpacks all lz4 files.
+        """
         print(f'\n{Colors["Green"]}Unpacking{Colors["Reset"]} Firmware files...')
         def lz4_Extractor(Files_Path: str) -> None:
             #Once the extraction is completed then the file will be in the same directory where it was
@@ -345,6 +335,9 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
 
         lz4_Extractor(Files_Path = DownloadsFolder + 'Firmware\\Extracted_Files\\')
 
+    def Firmware_Packing():
+        pass
+
     def Firmware_Flashing() -> None: #Need to fix heimdall : Need to know how it actually works : --resume and when --no-reboot...
         def CreateFlashingCommand(ExtractedFirmFiles_Path: str) -> str:
             #How's the pit file : 
@@ -361,9 +354,9 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
             # Flash Filename: sboot.bin
 
             while True:
-                Connection = subprocess.check_output('heimdall detect', stderr = True, shell = True)
-                if Connection:
-                    break
+                Connection = str(subprocess.check_output('heimdall detect', stderr = True, shell = True), encoding='utf-8')
+                if 'error' in Connection.lower():
+                    break #Quit
                 print(f'{Colors["Red"]}Cannot{Colors["Reset"]} detect device...\nAre you sure that your device is in download mode or is connected to computer?')
                 input(f"Press {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
 
@@ -372,18 +365,16 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
                     self.PartitionName = PartitionName
                     self.FileName = FileName
 
-            PitOutput = subprocess.check_output('heimdall print-pit --no-reboot', cwd = ToolsFolder + 'Heimdall\\', stderr = subprocess.STDOUT, shell = True) #encoding might be needed
+            PitOutput = str(subprocess.check_output('heimdall print-pit --no-reboot', cwd = ToolsFolder + 'Heimdall\\', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8')
             lines = [[line.rstrip() for line in PitOutput]]
 
             Partitions = list()
-
             for line in lines:
-                if 'Partition Name' in PreviousLine:
-                    PartitionName = line.split(': ')[1] #Partition Name: BOOTLOADER
+                if 'Partition Name' in line:
+                    PartitionName = line.split(': ')[1].strip() #Partition Name: BOOTLOADER
 
                 if 'Flash Filename' in line: #Flash Flename: sboot.bin
-                    Partitions.append(Partition(PartitionName, FileName = line.split(': ')[1]))
-                PreviousLine = line
+                    Partitions.append(Partition(PartitionName, FileName = line.split(': ')[1].strip()))
 
             FilesInDirectory = [f for f in os.listdir(ExtractedFirmFiles_Path) if os.path.isfile(os.join(ExtractedFirmFiles_Path, f))]
 
@@ -391,14 +382,14 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
                 if Part.FileName not in FilesInDirectory: #Checking whatever device's partition's file exists
                     Partitions.remove(Part)
 
-            Command = 'heimdall flash --resume '
+            Command = 'heimdall flash --resume'
             for Part in Partitions:
                 Command += f' --{Part.PartitionName} {Part.FileName}'
 
             return Command
 
 
-        Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+        Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
         os.system('adb reboot download')
         input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if your phone is in {Colors['Blue']}Download Mode{Colors['Reset']} : ")
         #Need to use heimdall detect        #TODO: Check heimdall commands' output
@@ -420,20 +411,20 @@ Now follow these {Colors["Red"]}instructions{Colors["Reset"]} :
         f'{Colors["Green"]}Installing{Colors["Reset"]} Samsung requirements...'
     )
 
+#Maybe patch the image first, then flash stock firmware and then the patched imagie instead of let the user set up the device to then flash the patched image and to so format again the phone
+
     Install_AdbFastboot()
     SetupDeviceForUSBCommunication()
-    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
     Unlock_Bootloader()
-    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
+    Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
     Download_Firmware()
     Firmware_Unpacking()
     Install_Heimdall()
     Firmware_Flashing()
     SetupDeviceForUSBCommunication()
-    Check_AdbConnection(DriversInstaller=Install_SamsungUSBDrivers)
-    Patch_Image_File(Device)
-    os.system(f'mv {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\sotck_boot.img')
-    os.system(f'mv {DownloadsFolder}Firmware\\PatchedFiles\\new-boot.img {DownloadsFolder}Firmware\\ExtractedFiles\\boot.img')
+    Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller=Install_SamsungUSBDrivers)
+    Patch_Image_File(Device, BootImage_Name = 'boot.img') #Need to re-packthe archive to a tar file and then flash it.
     os.system(f'adb reboot download')
     Firmware_Flashing()
     SetupDeviceForUSBCommunication()

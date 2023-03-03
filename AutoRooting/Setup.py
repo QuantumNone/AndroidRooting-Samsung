@@ -66,10 +66,23 @@ try:
     rutil.os.mkdir("Downloads")
 except FileExistsError:
     pass
+try:
+    rutil.os.mkdir(f'{rutil.DownloadsFolder}Temp')
+except FileExistsError:
+    pass
+try:
+    rutil.os.mkdir(f'Logs')
+except FileExistsError:
+    pass
 
 rutil.Pip_Installer(Package = 'tqdm')
+rutil.Pip_Installer(Package = 'bs4')
 
 
 rutil.AddToEnvironmentPath(Directory = rutil.DownloadsFolder)
 rutil.AddToEnvironmentPath(Directory = rutil.ToolsFolder)
+
+
+#TODO: Check Python version before running this script. It must be higher than 3.1
+# Check RAM available, bacause if all ram is used then Downloads and Extracting processes might corrupt the file or fail! Tested! 
 
