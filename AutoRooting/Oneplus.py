@@ -11,7 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
 
 
-def OnePlus_Requirements(Device: object, Phone: classmethod):
+def OnePlus_Requirements(Device: object):
 
     def Install_OnePlusUSBDrivers():
         Install_USBDrivers(
@@ -30,7 +30,7 @@ def OnePlus_Requirements(Device: object, Phone: classmethod):
             -> Returns an available Adb Connection! 
         """
         print(f'\n[{Colors["Red"]}Starting{Colors["Reset"]}] Unlocking process...')
-        Check_AdbConnection(AdbOrFastboot='Adb')
+        Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller = Install_OnePlusUSBDrivers)
         print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} phone into {Colors["Red"]}Bootloader Mode{Colors["Reset"]}...')
         os.system('adb reboot bootloader')
         sleep(6)    #Normal reboot time
@@ -135,32 +135,43 @@ def OnePlus_Requirements(Device: object, Phone: classmethod):
             URLink = link,
             FileName = 'Firmware.zip'
         )
-        ExtractZip(
-            Zip_FileName = 'Firmware.zip',
-            DestinationPath = DownloadsFolder,
-            HasFolderInside = False,
-            SpecificFile = 'payload.bin'
-        )
+        if GetFileName_FromZip(Zip_Path = DownloadsFolder + 'Firmware.zip', FileName = 'payload.bin'):
+            ExtractZip(
+                Zip_FileName = 'Firmware.zip',
+                DestinationPath = DownloadsFolder,
+                HasFolderInside = False,
+                SpecificFile = 'payload.bin'
+            )
 
-        Download(
-            URLink = 'https://codeload.github.com/QuantumNone/Payload_Dumper/zip/refs/heads/master',
-            FileName = 'Payload-Dumper.zip'
-        )
-        ExtractZip(
-            Zip_FileName = 'Payload-Dumper.zip',
-            DestinationPath = ToolsFolder,
-            HasFolderInside = True
-        )
+            Download(
+                URLink = 'https://codeload.github.com/QuantumNone/Payload_Dumper/zip/refs/heads/master',
+                FileName = 'Payload-Dumper.zip'
+            )
+            ExtractZip(
+                Zip_FileName = 'Payload-Dumper.zip',
+                DestinationPath = ToolsFolder,
+                HasFolderInside = True
+            )
+            
+            Pip_Installer(Package = 'protobuf==3.20.1')
+            Pip_Installer(Package = 'six')
+            Pip_Installer(Package = 'bsdiff4')
+            #NOT EVERY FIRMWARE HAS THE SAME FILES, FOR OLDER FIRMWARES PAYLOAD.BIN DOESN'T EXISTS
+            #All oneplus devices can be rooted but need to work on their firmware
+            print(f'\n{Colors["Green"]}Extracting{Colors["Reset"]} Firmware images from payload.bin : \n')
+            os.system(f'{sys.executable} {ToolsFolder}payload_dumper-master\\payload_dumper.py {DownloadsFolder}Firmware\\payload.bin --out {DownloadsFolder}Firmware\\Extracted_Files')
+            print(f'{Colors["Reset"]}{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}Done{Colors["Reset"]}!]\n')
 
-        
-        Pip_Installer(Package = 'protobuf==3.20.1')
-        Pip_Installer(Package = 'six')
-        Pip_Installer(Package = 'bsdiff4')
-        #NOT EVERY FIRMWARE HAS THE SAME FILES, FOR OLDER FIRMWARES PAYLOAD.BIN DOESN'T EXISTS
-        #All oneplus devices can be rooted but need to work on their firmware
-        print(f'\n{Colors["Green"]}Extracting{Colors["Reset"]} Firmware images from payload.bin : \n')
-        os.system(f'{sys.executable} {ToolsFolder}payload_dumper-master\\payload_dumper.py {DownloadsFolder}Firmware\\payload.bin --out {DownloadsFolder}Firmware\\Extracted_Files')
-        print(f'{Colors["Reset"]}{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}Done{Colors["Reset"]}!]\n')
+        else: #Andorid 8 or lower:
+            ExtractZip(
+                Zip_FileName = 'Firmware.zip',
+                DestinationPath = DownloadsFolder,
+                HasFolderInside = False
+            )
+            if not os.path.exists(DownloadsFolder + 'Firmware\\Extracted_Files'):
+                os.mkdir(DownloadsFolder + 'Firmware\\Extracted_Files')
+            os.replace(f'{DownloadsFolder}Firmware\\boot.img', f'{DownloadsFolder}Firmware\\Extracted_Files\\boot.img')
+                
 
     def Firmware_Flashing():
         """
@@ -176,9 +187,42 @@ def OnePlus_Requirements(Device: object, Phone: classmethod):
         os.system('adb reboot-bootloader')
         print(f'\n{Colors["Green"]}Waiting{Colors["Reset"]} for {Colors["Green"]}Fastboot{Colors["Reset"]} Connection...')
         Check_AdbConnection(AdbOrFastboot = 'Fastboot')
-        print(f'\n{Colors["Green"]}Starting{Colors["Reset"]} Flashing process...')
+        print(f'\n{Colors["Green"]}Starting{Colors["Reset"]} Flashing process...\n')
 
+        Main_Images = ['boot.img', 'dtbo.img', 'modem.img', 'recovery.img']
+        Images = [image for image in os.listdir(f'{DownloadsFolder}Firmware\\Extracted_Files') if image.endswith('.img') and image not in Main_Images and (image != 'vbmeta.img' or image != 'vbmeta_system.img')]
+        
+        for image in Main_Images:
+            print(f'{Colors["Red"]} -> {Colors["Reset"]}{Colors["Red"]}Flashing{Colors["Reset"]} {image[:-4]} partition...\n')
+            Flashing_Output = str(subprocess.check_output(f'fastboot flash {image[:-4]} {DownloadsFolder}Firmware\\Extracted_Files\\{image}', stderr=subprocess.STDOUT, shell = True))
+            if 'failed' in Flashing_Output.lower():
+                print(f'\n{Colors["Red"]}Cannot{Colors["Reset"]} flash {image[:-4]} partition...\n')
+        
+        Flashing_Output = str(subprocess.check_output(f'fastboot --disable-verity flash vbmeta {DownloadsFolder}Firmware\\Extracted_Files\\vbmeta.img', stderr=subprocess.STDOUT, shell = True), encoding = 'utf-8')
+        if 'failed' in Flashing_Output.lower():
+            print(f'\n{Colors["Red"]}Cannot{Colors["Reset"]} flash vbmeta partition...\n')
+        Flashing_Output = str(subprocess.check_output(f'fastboot --disable-verity flash vbmeta_system {DownloadsFolder}Firmware\\Extracted_Files\\vbmeta_system.img', stderr=subprocess.STDOUT, shell = True), encoding = 'utf-8')
+        if 'failed' in Flashing_Output.lower():
+            print(f'\n{Colors["Red"]}Cannot{Colors["Reset"]} flash vbmeta_system partition...\n')
+        
+        Flashing_Output = str(subprocess.check_output('fastboot reboot fastboot', stderr=subprocess.STDOUT, shell = True))
+        sleep(5)
+        Check_AdbConnection(AdbOrFastboot='Fastboot')
 
+        for image in Images:
+            print(f'{Colors["Red"]} -> {Colors["Reset"]}{Colors["Red"]}Flashing{Colors["Reset"]} {image[:-4]} partition...\n')
+            Flashing_Output = str(subprocess.check_output(f'fastboot flash {image[:-4]} {DownloadsFolder}Firmware\\Extracted_Files\\{image}', stderr=subprocess.STDOUT, shell = True), encoding = 'utf-8')
+            if 'failed' in Flashing_Output.lower():
+                print(f'\n{Colors["Red"]}Cannot{Colors["Reset"]} flash {image[:-4]} partition...\n')
+        
+        
+        print(f'{Colors["Green"]}Rebooting{Colors["Reset"]}...')
+        subprocess.check_output(f'fastboot reboot', stderr=subprocess.STDOUT, shell = True) #-w options is optional if the user would like to erase data but it's better to don't erase it, else re-configuration is required...
+
+        
+        print(f'\n{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}Finished{Colors["Reset"]} Flashing process!]\n')
+        input(f"Press {Colors['Green']}ENTER{Colors['Reset']} if the phone has rebooted : ")
+        Check_AdbConnection(AdbOrFastboot = 'Adb')
 
 
     Unlock_Bootloader()
@@ -187,3 +231,5 @@ def OnePlus_Requirements(Device: object, Phone: classmethod):
         Device = Device,
         BootImage_Name = 'boot.img'
     )
+    Firmware_Flashing()
+    ConfigureMagisk()
