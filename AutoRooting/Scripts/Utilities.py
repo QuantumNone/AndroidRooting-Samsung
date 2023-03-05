@@ -5,6 +5,7 @@
 
 import os, platform, ctypes, shutil, urllib.request, zipfile, subprocess, requests, sys, tarfile
 from tqdm import tqdm
+from time import sleep
 
 # Colors for String formatting :
 Colors: dict[str, str] = {
@@ -19,6 +20,7 @@ Colors: dict[str, str] = {
     "White_Highlight": "\033[1;7m",
     "Black_Highlight": "\033[1;40m",
     "Red_Highlight": "\033[1;41m",
+    "Green_Highlight": "\033[1;42m",
     "Grey_Highlight": "\033[1;47m",
     "Yellow_Highlight": "\033[1;43m",
     "Blue_Highlight": "\033[1;44m",
@@ -51,7 +53,8 @@ def find_files(root_dir: str, extension: str, file_name: str, NoExtension: bool 
     return [root_dir + f for f in os.listdir(root_dir) if (f.startswith(file_name) and (NoExtension or f.endswith(f'.{extension}')))]
 
 def CheckFile(Filename: str, Directory = f'{os.getcwd()}\\') -> bool:
-    return os.path.isfile(Directory + Filename)
+    """This function returns True or False in case a file is in a specific directory. If the directory doesn't exists, it returns False."""
+    return os.path.isfile(Directory + '\\' + Filename)
 
 # Checks if whatever executable provided (as string) exists in $PATH
 def checkTool(name: str, path: str = '') -> bool:
@@ -164,6 +167,8 @@ def DriverInstaller():
     # os.system('bcdedit /set testsigning on')
 
 
+#TODO: define a function which clears all data downloaded like Firmware folder, as it causes issues if the program is re-launched. the firmware won't get extracted!
+
 class DownloadFailedError(Exception):
     pass
 
@@ -244,7 +249,7 @@ def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool, R
 
     if SpecificFile:
         try:
-            if os.path.getsize(DestinationPath + SpecificFile) <= 5_000:
+            if os.path.getsize(DestinationPath + SpecificFile) <= 5_000: #TODO: Why this?
                 os.remove(ToolsFolder + SpecificFile)
                 return
         except:
@@ -254,63 +259,65 @@ def ExtractZip(Zip_FileName: str, DestinationPath: str, HasFolderInside: bool, R
     
     if Zip_FileName[:-4] in os.listdir(ToolsFolder) or Zip_FileName[:-4] in os.listdir(DestinationPath):
         try:
-            if os.path.getsize(DownloadsFolder + Zip_FileName[:-4]) >= 5_000: #Checks if folder's size is 5Kb, if so remove it and re-extract the zip file
+            Folder_Size = int(str(subprocess.check_output(f'dir /s {DownloadsFolder + Zip_FileName[:-4]}', stderr=subprocess.STDOUT, shell = True)).split('Total Files Listed:')[1].split('File(s)')[1].split('bytes')[0].strip().replace(',', ''))
+            if Folder_Size >= 5_000:
                 return
         except:
             pass
         try:
-            if os.path.getsize(ToolsFolder + Zip_FileName[:-4]) >= 5_000: #Checks if folder's size is 5Kb, if so remove it and re-extract the zip file
+            Folder_Size = int(str(subprocess.check_output(f'dir /s {ToolsFolder + Zip_FileName[:-4]}', stderr=subprocess.STDOUT, shell = True)).split('Total Files Listed:')[1].split('File(s)')[1].split('bytes')[0].strip().replace(',', ''))
+            if Folder_Size >= 5_000:
                 return
         except:
             pass
 
-    if not HasFolderInside:
+    if not HasFolderInside: #TODO: Why?
         DestinationPath += Zip_FileName[:-4]
         
-    print(f"{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
-    
-    with zipfile.ZipFile(Zip_Path, "r") as zip_ref:
-        try:
-            if SpecificFile:
-                zip_file = zipfile.ZipFile(Zip_Path)
-                file_size = zip_file.getinfo(SpecificFile).file_size
-                with tqdm(total=file_size, unit='B', unit_scale=True, desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}') as pbar:
-                    with zip_file.open(SpecificFile) as zip_file_obj, open(DestinationPath + '\\' + SpecificFile, 'wb') as out_file:
-                        while True:
-                            data = zip_file_obj.read(4096)
-                            if not data:
-                                break
-                            out_file.write(data)
-                            pbar.update(len(data))
-                # zip_ref.extract(member = SpecificFile, path = DestinationPath, pwd = None)
-            else:
-                zip_ref.extractall(path = DestinationPath, pwd = None, members = tqdm(zip_ref.infolist(), unit='MB', desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'))
+    print(f"\n{Colors['Green']}Extracting{Colors['Reset']} {Zip_FileName} {Colors['Green']}to{Colors['Reset']} {DestinationPath}")
+    #testzip() function could be implemented to check whatever the zip file is corrupted or not. This is usefull in case something goes wrong and cannot read data...
+    if Zip_FileName.endswith('.zip'):
+        with zipfile.ZipFile(Zip_Path, "r") as zip_ref:
+            try:
+                if SpecificFile:
+                    zip_file = zipfile.ZipFile(Zip_Path)
+                    file_size = zip_file.getinfo(SpecificFile).file_size
+                    with tqdm(total=file_size, unit='B', unit_scale=True, desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}') as pbar:
+                        with zip_file.open(SpecificFile) as zip_file_obj, open(DestinationPath + '\\' + SpecificFile, 'wb') as out_file:
+                            while True:
+                                data = zip_file_obj.read(4096)
+                                if not data:
+                                    break
+                                out_file.write(data)
+                                pbar.update(len(data))
+                    # zip_ref.extract(member = SpecificFile, path = DestinationPath, pwd = None)
+                else:
+                    zip_ref.extractall(path = DestinationPath, pwd = None, members = tqdm(zip_ref.infolist(), unit='MB', desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}'))
 
-        except zipfile.error as ex:
-            Quit(
-                ExceptionName = ex, 
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!'
-            )
-        except Exception as ex:
-            Quit(
-                ExceptionName = ex, 
-                Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName} for unknown reasons!'
-            )
+            except zipfile.error as ex:
+                Quit(
+                    ExceptionName = ex, 
+                    Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName}!'
+                )
+            except Exception as ex:
+                Quit(
+                    ExceptionName = ex, 
+                    Message = f'{Colors["Red"]}Cannot{Colors["Reset"]} Extract {Zip_FileName} for unknown reasons!'
+                )
+
+    elif Zip_FileName.endswith('.tgz'): #Better not to implement SpecificFile as the reading of a .tgz archive format takes much time!
+        print(f"{Colors['Red']}Reading{Colors['Reset']} a Compressed Archive file might take some time.             [{Colors['Green']}15{Colors['Reset']}-{Colors['Green']}120{Colors['Reset']} seconds!]")
+        print(f"{Colors['Red']}Please{Colors['Reset']}, {Colors['Red']}DO NOT{Colors['Reset']} terminate this process {Colors['Red']}or{Colors['Reset']} the Archive will corrupt!\n")
+        from tarfile import open as Topen
+        with Topen(Zip_Path, 'r:gz') as Compressed_Archive:
+            for member in tqdm(iterable=Compressed_Archive.getmembers(), desc = f'{Colors["Green"]}Extraction progress{Colors["Reset"]}', unit = 'MB'):
+                Compressed_Archive.extract(member, path = DestinationPath)
 
 
     ListDir_After = set(os.listdir(DestinationPath))
     if Rename and HasFolderInside:
         Extracted_FolderName = list(ListDir_After - ListDir_Before)[0]
-        try:
-            os.mkdir(DownloadsFolder + Zip_FileName[:-4])
-        except:
-            pass
-        subprocess.check_output(f'move {DownloadsFolder}{Extracted_FolderName}\* {DownloadsFolder}{Zip_FileName[:-4]}', stderr = subprocess.STDOUT, shell = True)
-        # subprocess.check_output(f'rmdir {DownloadsFolder}Temp\\', stderr = subprocess.STDOUT, shell = True)
-        try:
-            os.rmdir(DownloadsFolder + Extracted_FolderName)
-        except:
-            pass
+        os.replace(DownloadsFolder + Extracted_FolderName, DownloadsFolder + Zip_FileName[:-4])
 
     print(f"{Colors['Red']} -> {Colors['Reset']}[{Colors['Green']}Done{Colors['Reset']}!]\n")
     
@@ -356,7 +363,7 @@ def SetupDeviceForUSBCommunication():
 
     1. Open your device {Colors["Green"]}settings{Colors["Reset"]} and navigate into "About my phone" option.
     2. Search for "{Colors["Red"]}Build number{Colors["Reset"]}" option inside these settings (if you cannot find it try in "{Colors["Green"]}Software Information{Colors["Reset"]}" option).
-    3. Tap 7 times on "Build number" option to enable {Colors["Red"]}Developer Options{Colors["Reset"]}.
+    3. Tap 7 times on "Build number" option to enable {Colors["Red"]}Developer Options{Colors["Reset"]}.        ["{Colors["Green"]}Build Number{Colors["Reset"]}" or "{Colors["Green"]}MIUI version{Colors["Reset"]}"]
     4. Go back to settings and {Colors["Red"]}search{Colors["Reset"]} for Developer Options.
     5. Search for "{Colors["Red"]}USB debugging{Colors["Reset"]}" option and {Colors["Green"]}enable{Colors["Reset"]} it.
     6. {Colors["Green"]}Connect{Colors["Reset"]} now your device to your computer trough USB cable and check your device screen.
@@ -375,6 +382,8 @@ def SetupDeviceForUSBCommunication():
                            "{Colors["Blue"]}https://krispitech.com/fix-the-missing-oem-unlock-in-developer-options/{Colors["Reset"]}"
             2. "OEM Unlocking" shows "Connect to the internet or contact your carrier" : 
                            "{Colors["Blue"]}https://www.quora.com/Why-do-some-mobile-companies-refuse-to-unlock-bootloaders-like-Huawei-and-Realme{Colors["Reset"]}"
+        
+        If that option is enabled and {Colors["Grey"]}greyed out{Colors["Reset"]}, it means that the phone's bootloader is already unlocked!
         '''
         )
 
@@ -420,11 +429,17 @@ def Install_AdbDrivers():
         )
 
     print(f'{Colors["Green"]}Trying{Colors["Reset"]} to install Google USB Drivers (Adb&Fastboot drivers)...'.ljust(150), end = '')
-    
-    pnputil_Out = str(subprocess.check_output(f'pnputil /add-driver {ToolsFolder}usb_driver\\android_winusb.inf /install', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8')
+    #TODO: manage with pnputil isues
+    pnputil_Out = str(subprocess.check_output(f'pnputil /add-driver {ToolsFolder}usb_driver\\android_winusb.inf /install', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8', errors='ignore')
     Published_Name = pnputil_Out.split('\n')[4] if 'Published Name:' in pnputil_Out.split('\n')[4] else ''
-    Driver_Info = str(subprocess.check_output('pnputil /enum-drivers', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8').split('\n')
-    Driver_Info = Driver_Info[Driver_Info.index(Published_Name):Driver_Info.index(Published_Name) + 9]
+    Driver_Info = str(subprocess.check_output('pnputil /enum-drivers', stderr = subprocess.STDOUT, shell = True), encoding = 'utf-8', errors='ignore').split('\n')
+    try:
+        Driver_Info = Driver_Info[Driver_Info.index(Published_Name):Driver_Info.index(Published_Name) + 9]
+    except ValueError:
+        Quit(
+            ExceptionName = ValueError,
+            Message = f'{Colors["Red"]}Something gone wrong{Colors["Reset"]} during the installation of Google USB Drivers!\nMaybe pnputil cannot find the correct {Colors["Green"]}Published Name{Colors["Reset"]}!'
+        )
     if 'successfully' not in pnputil_Out:
         Quit(
             ExceptionName = SystemExit(),
@@ -468,7 +483,7 @@ def Check_AdbConnection(AdbOrFastboot: str = 'Adb', DriversInstaller: function =
                     cancel  {Colors["Green"]}OK{Colors["Reset"]}
                     ''')
 
-            input(f"\tPress {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
+            input(f"\nPress {Colors['Green']}ENTER{Colors['Reset']} to try again the connection : ")
             Check_AdbConnection(AdbOrFastboot, DriversInstaller, Retries - 1)
         #TODO: Improve this process. test it on some machines
         else:
