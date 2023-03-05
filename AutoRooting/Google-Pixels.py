@@ -76,7 +76,7 @@ def GooglePixel_Requirements(Device: object):
         if response.status_code != 200:
             Quit(
                 ExceptionName = SystemExit(),
-                Message = rf'\nCannot open a HTTP request on {URL} for unknown reason!'
+                Message = f'\n{Colors["Red"]}Cannot{Colors["Reset"]} open a HTTP request on {URL} for unknown reason!\nMaybe the website is {Colors["Red"]}offline{Colors["Reset"]} or doesn\' exists!'
             )
         # Parsing del HTML with BeautifulSoup
         soup = BeautifulSoup(response.text, 'html.parser')
