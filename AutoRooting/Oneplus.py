@@ -1,6 +1,5 @@
 #Copyright (C) <2023> by <Quantum>
 from Scripts.Utilities import *
-from time import sleep
 
 Pip_Installer(Package = 'selenium')
 
@@ -29,7 +28,7 @@ def OnePlus_Requirements(Device: object):
     
             -> Returns an available Adb Connection! 
         """
-        print(f'\n[{Colors["Red"]}Starting{Colors["Reset"]}] Unlocking process...')
+        print(f'\n[{Colors["Green"]}Starting{Colors["Reset"]}] Unlocking process...')
         Check_AdbConnection(AdbOrFastboot='Adb', DriversInstaller = Install_OnePlusUSBDrivers)
         print(f'{Colors["Green"]}Rebooting{Colors["Reset"]} phone into {Colors["Red"]}Bootloader Mode{Colors["Reset"]}...')
         os.system('adb reboot bootloader')
@@ -39,7 +38,7 @@ def OnePlus_Requirements(Device: object):
                 return
             sleep(3)
         
-        print(f'[{Colors["Green"]}In Bootloader Mode{Colors["Reset"]}!]\n[{Colors["Red"]}Unlocking bootloader{Colors["Reset"]}...]')
+        print(f'{Colors["Red"]} -> {Colors["Reset"]}[{Colors["Green"]}In Bootloader Mode{Colors["Reset"]}!]\n[{Colors["Red"]}Unlocking bootloader{Colors["Reset"]}...]')
         Unlocking = str(subprocess.check_output(f'fastboot flashing unlock', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
         if not 'OKAY' in Unlocking:
             Unlocking = str(subprocess.check_output(f'fastboot oem unlock', stderr = subprocess.STDOUT, shell = True), encoding='utf-8')
